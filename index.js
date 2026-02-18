@@ -284,6 +284,7 @@ export default class ActivityPubEndpoint {
     const self = this;
     return {
       name: "ActivityPub syndicator",
+      options: { checked: self.options.checked },
 
       get info() {
         const hostname = self._publicationUrl
