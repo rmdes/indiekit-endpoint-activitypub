@@ -192,7 +192,7 @@ export default class ActivityPubEndpoint {
     const router = express.Router(); // eslint-disable-line new-cap
     const self = this;
 
-    router.get("*", async (request, response, next) => {
+    router.get("{*path}", async (request, response, next) => {
       const accept = request.headers.accept || "";
       const isActivityPub =
         accept.includes("application/activity+json") ||
