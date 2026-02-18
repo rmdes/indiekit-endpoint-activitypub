@@ -1,5 +1,3 @@
-import path from "node:path";
-
 import express from "express";
 
 import { handleWebFinger } from "./lib/webfinger.js";
@@ -50,9 +48,7 @@ export default class ActivityPubEndpoint {
     };
   }
 
-  get filePath() {
-    return path.dirname(new URL(import.meta.url).pathname);
-  }
+  // filePath is set by Indiekit's plugin loader via require.resolve()
 
   /**
    * WebFinger routes — mounted at /.well-known/
