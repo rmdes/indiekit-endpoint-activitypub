@@ -1,0 +1,45 @@
+{% extends "document.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+{% from "card/macro.njk" import card with context %}
+{% from "card-grid/macro.njk" import cardGrid with context %}
+{% from "prose/macro.njk" import prose with context %}
+{% from "badge/macro.njk" import badge with context %}
+
+{% block content %}
+  {{ heading({ text: title, level: 1 }) }}
+
+  {{ cardGrid({ cardSize: "16rem", items: [
+    {
+      title: followerCount + " " + __("activitypub.followers"),
+      url: mountPath + "/admin/followers"
+    },
+    {
+      title: followingCount + " " + __("activitypub.following"),
+      url: mountPath + "/admin/following"
+    },
+    {
+      title: __("activitypub.activities"),
+      url: mountPath + "/admin/activities"
+    },
+    {
+      title: __("activitypub.migrate"),
+      url: mountPath + "/admin/migrate"
+    }
+  ]}) }}
+
+  {{ heading({ text: __("activitypub.recentActivity"), level: 2 }) }}
+
+  {% if recentActivities.length > 0 %}
+    {% for activity in recentActivities %}
+      {{ card({
+        title: activity.actorName or activity.actorUrl,
+        description: { text: activity.summary },
+        published: activity.receivedAt,
+        badges: [{ text: activity.type }]
+      }) }}
+    {% endfor %}
+  {% else %}
+    {{ prose({ text: __("activitypub.noActivity") }) }}
+  {% endif %}
+{% endblock %}

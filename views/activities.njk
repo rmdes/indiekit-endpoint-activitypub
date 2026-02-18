@@ -1,0 +1,29 @@
+{% extends "document.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+{% from "card/macro.njk" import card with context %}
+{% from "badge/macro.njk" import badge with context %}
+{% from "prose/macro.njk" import prose with context %}
+{% from "pagination/macro.njk" import pagination with context %}
+
+{% block content %}
+  {{ heading({ text: __("activitypub.activities"), level: 1, parent: { text: __("activitypub.title"), href: mountPath } }) }}
+
+  {% if activities.length > 0 %}
+    {% for activity in activities %}
+      {{ card({
+        title: activity.actorName or activity.actorUrl,
+        description: { text: activity.summary },
+        published: activity.receivedAt,
+        badges: [
+          { text: activity.type },
+          { text: __("activitypub.directionInbound") if activity.direction === "inbound" else __("activitypub.directionOutbound") }
+        ]
+      }) }}
+    {% endfor %}
+
+    {{ pagination(cursor) if cursor }}
+  {% else %}
+    {{ prose({ text: __("activitypub.noActivity") }) }}
+  {% endif %}
+{% endblock %}
