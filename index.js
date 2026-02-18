@@ -305,10 +305,15 @@ export default class ActivityPubEndpoint {
         if (!self._federationHandler) {
           return undefined;
         }
-        return self._federationHandler.deliverToFollowers(
-          properties,
-          publication,
-        );
+        try {
+          return await self._federationHandler.deliverToFollowers(
+            properties,
+            publication,
+          );
+        } catch (error) {
+          console.error("[ActivityPub] Syndication failed:", error.message);
+          return undefined;
+        }
       },
     };
   }
