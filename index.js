@@ -180,7 +180,7 @@ export default class ActivityPubEndpoint {
     router.get("/admin/activities", activitiesController(mp));
     router.get("/admin/migrate", migrateGetController(mp, this.options));
     router.post("/admin/migrate", migratePostController(mp, this.options));
-    router.post("/admin/migrate/import", express.json({ limit: "5mb" }), migrateImportController(mp, this.options));
+    router.post("/admin/migrate/import", migrateImportController(mp, this.options));
 
     return router;
   }

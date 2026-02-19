@@ -76,7 +76,7 @@
              @change="readFile($event)">
       <template x-if="fileName">
         <p class="hint" style="margin-top: 0.5em">
-          <strong x-text="fileName"></strong> — <span x-text="lineCount + ' lines'"></span>
+          <strong x-text="fileName"></strong> — <span x-text="handles.length + ' accounts found'"></span>
         </p>
       </template>
       <template x-if="fileError">
@@ -85,7 +85,7 @@
     </div>
 
     <button class="button" type="button"
-            :disabled="importing || !csvContent"
+            :disabled="importing || handles.length === 0"
             @click="startImport()">
       <span x-show="!importing">{{ __("activitypub.migrate.importButton") }}</span>
       <span x-show="importing" x-text="statusText"></span>
@@ -119,7 +119,7 @@
   <script>
   function csvImport(mountPath) {
     return {
-      csvContent: '',
+      handles: [],
       fileName: '',
       lineCount: 0,
       fileError: '',
@@ -129,9 +129,14 @@
       resultText: '',
       resultErrors: [],
 
+      /**
+       * Parse CSV client-side — extract handles (first column) only.
+       * This keeps the JSON payload small (handles only, no raw CSV),
+       * avoiding Express's default 100KB body parser limit.
+       */
       readFile(event) {
         var self = this;
-        self.csvContent = '';
+        self.handles = [];
         self.fileName = '';
         self.lineCount = 0;
         self.fileError = '';
@@ -151,9 +156,19 @@
         var reader = new FileReader();
         reader.onload = function(e) {
           var text = e.target.result;
-          self.csvContent = text;
+          var lines = text.split('\n').filter(function(l) { return l.trim(); });
           self.fileName = file.name;
-          self.lineCount = text.split('\n').filter(function(l) { return l.trim(); }).length;
+          self.lineCount = lines.length;
+
+          // Extract handles: skip header, take first CSV column, keep only valid handles
+          var parsed = [];
+          for (var i = 1; i < lines.length; i++) {
+            var handle = lines[i].split(',')[0].trim();
+            if (handle && handle.indexOf('@') !== -1) {
+              parsed.push(handle);
+            }
+          }
+          self.handles = parsed;
         };
         reader.onerror = function() {
           self.fileError = 'Could not read file';
@@ -183,12 +198,19 @@
           return;
         }
 
+        if (self.handles.length === 0) {
+          self.importing = false;
+          self.resultType = 'error';
+          self.resultText = 'No valid handles found in the CSV file.';
+          return;
+        }
+
         try {
           var res = await fetch(mountPath + '/admin/migrate/import', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              csvContent: self.csvContent,
+              handles: self.handles,
               importTypes: importTypes
             })
           });
