@@ -87,6 +87,30 @@ export default class ActivityPubEndpoint {
       return self._fedifyMiddleware(req, res, next);
     });
 
+    // Catch-all for federation paths that Fedify didn't handle (e.g. GET
+    // on inbox). Without this, they fall through to Indiekit's auth
+    // middleware and redirect to the login page.
+    router.all("/users/:identifier/inbox", (req, res) => {
+      res
+        .status(405)
+        .set("Allow", "POST")
+        .type("application/activity+json")
+        .json({
+          error: "Method Not Allowed",
+          message: "The inbox only accepts POST requests",
+        });
+    });
+    router.all("/inbox", (req, res) => {
+      res
+        .status(405)
+        .set("Allow", "POST")
+        .type("application/activity+json")
+        .json({
+          error: "Method Not Allowed",
+          message: "The shared inbox only accepts POST requests",
+        });
+    });
+
     return router;
   }
 
