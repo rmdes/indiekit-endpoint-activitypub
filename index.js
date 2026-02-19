@@ -21,6 +21,7 @@ import {
   profileGetController,
   profilePostController,
 } from "./lib/controllers/profile.js";
+import { logActivity } from "./lib/activity-log.js";
 
 const defaults = {
   mountPath: "/activitypub",
@@ -256,6 +257,13 @@ export default class ActivityPubEndpoint {
           );
 
           if (!activity) {
+            await logActivity(self._collections.ap_activities, {
+              direction: "outbound",
+              type: "Syndicate",
+              actorUrl: self._publicationUrl,
+              objectUrl: properties.url,
+              summary: `Syndication skipped: could not convert post to AS2`,
+            });
             return undefined;
           }
 
@@ -264,19 +272,223 @@ export default class ActivityPubEndpoint {
             {},
           );
 
+          // Count followers for logging
+          const followerCount =
+            await self._collections.ap_followers.countDocuments();
+
+          console.info(
+            `[ActivityPub] Sending ${activity.constructor?.name || "activity"} for ${properties.url} to ${followerCount} followers`,
+          );
+
           await ctx.sendActivity(
             { identifier: self.options.actor.handle },
             "followers",
             activity,
           );
 
+          // Determine activity type name
+          const typeName =
+            activity.constructor?.name || "Create";
+
+          await logActivity(self._collections.ap_activities, {
+            direction: "outbound",
+            type: typeName,
+            actorUrl: self._publicationUrl,
+            objectUrl: properties.url,
+            summary: `Sent ${typeName} for ${properties.url} to ${followerCount} followers`,
+          });
+
+          console.info(
+            `[ActivityPub] Syndication queued: ${typeName} for ${properties.url}`,
+          );
+
           return properties.url || undefined;
         } catch (error) {
           console.error("[ActivityPub] Syndication failed:", error.message);
+          await logActivity(self._collections.ap_activities, {
+            direction: "outbound",
+            type: "Syndicate",
+            actorUrl: self._publicationUrl,
+            objectUrl: properties.url,
+            summary: `Syndication failed: ${error.message}`,
+          }).catch(() => {});
           return undefined;
         }
       },
     };
+  }
+
+  /**
+   * Send a Follow activity to a remote actor and store in ap_following.
+   * @param {string} actorUrl - The remote actor's URL
+   * @param {object} [actorInfo] - Optional pre-fetched actor info
+   * @param {string} [actorInfo.name] - Actor display name
+   * @param {string} [actorInfo.handle] - Actor handle
+   * @param {string} [actorInfo.photo] - Actor avatar URL
+   * @returns {Promise<{ok: boolean, error?: string}>}
+   */
+  async followActor(actorUrl, actorInfo = {}) {
+    if (!this._federation) {
+      return { ok: false, error: "Federation not initialized" };
+    }
+
+    try {
+      const { Follow } = await import("@fedify/fedify");
+      const handle = this.options.actor.handle;
+      const ctx = this._federation.createContext(
+        new URL(this._publicationUrl),
+        {},
+      );
+
+      // Resolve the remote actor to get their inbox
+      const remoteActor = await ctx.lookupObject(actorUrl);
+      if (!remoteActor) {
+        return { ok: false, error: "Could not resolve remote actor" };
+      }
+
+      // Send Follow activity
+      const follow = new Follow({
+        actor: ctx.getActorUri(handle),
+        object: new URL(actorUrl),
+      });
+
+      await ctx.sendActivity({ identifier: handle }, remoteActor, follow);
+
+      // Store in ap_following
+      const name =
+        actorInfo.name ||
+        remoteActor.name?.toString() ||
+        remoteActor.preferredUsername?.toString() ||
+        actorUrl;
+      const actorHandle =
+        actorInfo.handle ||
+        remoteActor.preferredUsername?.toString() ||
+        "";
+      const avatar =
+        actorInfo.photo ||
+        (remoteActor.icon
+          ? (await remoteActor.icon)?.url?.href || ""
+          : "");
+      const inbox = remoteActor.inbox?.id?.href || "";
+      const sharedInbox = remoteActor.endpoints?.sharedInbox?.href || "";
+
+      await this._collections.ap_following.updateOne(
+        { actorUrl },
+        {
+          $set: {
+            actorUrl,
+            handle: actorHandle,
+            name,
+            avatar,
+            inbox,
+            sharedInbox,
+            followedAt: new Date().toISOString(),
+            source: "microsub-reader",
+          },
+        },
+        { upsert: true },
+      );
+
+      console.info(`[ActivityPub] Sent Follow to ${actorUrl}`);
+
+      await logActivity(this._collections.ap_activities, {
+        direction: "outbound",
+        type: "Follow",
+        actorUrl: this._publicationUrl,
+        objectUrl: actorUrl,
+        actorName: name,
+        summary: `Sent Follow to ${name} (${actorUrl})`,
+      });
+
+      return { ok: true };
+    } catch (error) {
+      console.error(`[ActivityPub] Follow failed for ${actorUrl}:`, error.message);
+
+      await logActivity(this._collections.ap_activities, {
+        direction: "outbound",
+        type: "Follow",
+        actorUrl: this._publicationUrl,
+        objectUrl: actorUrl,
+        summary: `Follow failed for ${actorUrl}: ${error.message}`,
+      }).catch(() => {});
+
+      return { ok: false, error: error.message };
+    }
+  }
+
+  /**
+   * Send an Undo(Follow) activity and remove from ap_following.
+   * @param {string} actorUrl - The remote actor's URL
+   * @returns {Promise<{ok: boolean, error?: string}>}
+   */
+  async unfollowActor(actorUrl) {
+    if (!this._federation) {
+      return { ok: false, error: "Federation not initialized" };
+    }
+
+    try {
+      const { Follow, Undo } = await import("@fedify/fedify");
+      const handle = this.options.actor.handle;
+      const ctx = this._federation.createContext(
+        new URL(this._publicationUrl),
+        {},
+      );
+
+      const remoteActor = await ctx.lookupObject(actorUrl);
+      if (!remoteActor) {
+        // Even if we can't resolve, remove locally
+        await this._collections.ap_following.deleteOne({ actorUrl });
+
+        await logActivity(this._collections.ap_activities, {
+          direction: "outbound",
+          type: "Undo(Follow)",
+          actorUrl: this._publicationUrl,
+          objectUrl: actorUrl,
+          summary: `Removed ${actorUrl} locally (could not resolve remote actor)`,
+        }).catch(() => {});
+
+        return { ok: true };
+      }
+
+      const follow = new Follow({
+        actor: ctx.getActorUri(handle),
+        object: new URL(actorUrl),
+      });
+
+      const undo = new Undo({
+        actor: ctx.getActorUri(handle),
+        object: follow,
+      });
+
+      await ctx.sendActivity({ identifier: handle }, remoteActor, undo);
+      await this._collections.ap_following.deleteOne({ actorUrl });
+
+      console.info(`[ActivityPub] Sent Undo(Follow) to ${actorUrl}`);
+
+      await logActivity(this._collections.ap_activities, {
+        direction: "outbound",
+        type: "Undo(Follow)",
+        actorUrl: this._publicationUrl,
+        objectUrl: actorUrl,
+        summary: `Sent Undo(Follow) to ${actorUrl}`,
+      });
+
+      return { ok: true };
+    } catch (error) {
+      console.error(`[ActivityPub] Unfollow failed for ${actorUrl}:`, error.message);
+
+      await logActivity(this._collections.ap_activities, {
+        direction: "outbound",
+        type: "Undo(Follow)",
+        actorUrl: this._publicationUrl,
+        objectUrl: actorUrl,
+        summary: `Unfollow failed for ${actorUrl}: ${error.message}`,
+      }).catch(() => {});
+
+      // Remove locally even if remote delivery fails
+      await this._collections.ap_following.deleteOne({ actorUrl }).catch(() => {});
+      return { ok: false, error: error.message };
+    }
   }
 
   /**
@@ -315,6 +527,13 @@ export default class ActivityPubEndpoint {
       ap_profile: indiekitCollections.get("ap_profile"),
       get posts() {
         return indiekitCollections.get("posts");
+      },
+      // Lazy access to Microsub collections (may not exist if plugin not loaded)
+      get microsub_items() {
+        return indiekitCollections.get("microsub_items");
+      },
+      get microsub_channels() {
+        return indiekitCollections.get("microsub_channels");
       },
       _publicationUrl: this._publicationUrl,
     };
