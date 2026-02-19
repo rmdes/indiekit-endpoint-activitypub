@@ -13,7 +13,7 @@
       {{ card({
         title: follower.name or follower.handle or follower.actorUrl,
         url: follower.actorUrl,
-        photo: { src: follower.avatar, alt: follower.name } if follower.avatar,
+        photo: { url: follower.avatar, alt: follower.name } if follower.avatar,
         description: { text: "@" + follower.handle if follower.handle },
         published: follower.followedAt
       }) }}
