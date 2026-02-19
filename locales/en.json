@@ -43,6 +43,7 @@
       "step3Desc": "Once you have saved your alias and imported your data, go to your Mastodon instance → Preferences → Account → <strong>Move to a different account</strong>. Enter your new fediverse handle and confirm. Mastodon will notify all your followers, and those whose servers support it will automatically re-follow you here. This step is irreversible — your old account will become a redirect.",
       "errorNoFile": "Please select a CSV file before importing.",
       "success": "Imported %d following, %d followers (%d failed).",
+      "failedList": "Could not resolve: %s",
       "aliasSuccess": "Alias saved — your actor document now includes this account as alsoKnownAs."
     }
   }
