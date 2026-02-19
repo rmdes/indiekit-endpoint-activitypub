@@ -150,8 +150,12 @@ export default class ActivityPubEndpoint {
     const self = this;
 
     // Let Fedify handle NodeInfo data (/nodeinfo/2.1)
+    // Only pass GET/HEAD requests — POST/PUT/DELETE must not go through
+    // Fedify here, because fromExpressRequest() consumes the body stream,
+    // breaking Express body-parsed routes downstream (e.g. admin forms).
     router.use((req, res, next) => {
       if (!self._fedifyMiddleware) return next();
+      if (req.method !== "GET" && req.method !== "HEAD") return next();
       return self._fedifyMiddleware(req, res, next);
     });
 
