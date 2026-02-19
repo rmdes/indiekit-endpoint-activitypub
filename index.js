@@ -1,15 +1,26 @@
 import express from "express";
 
-import { handleWebFinger } from "./lib/webfinger.js";
-import { buildActorDocument } from "./lib/actor.js";
-import { getOrCreateKeyPair } from "./lib/keys.js";
-import { jf2ToActivityStreams, resolvePostUrl } from "./lib/jf2-to-as2.js";
-import { createFederationHandler } from "./lib/federation.js";
+import { setupFederation } from "./lib/federation-setup.js";
+import {
+  createFedifyMiddleware,
+} from "./lib/federation-bridge.js";
+import {
+  jf2ToActivityStreams,
+  jf2ToAS2Activity,
+} from "./lib/jf2-to-as2.js";
 import { dashboardController } from "./lib/controllers/dashboard.js";
 import { followersController } from "./lib/controllers/followers.js";
 import { followingController } from "./lib/controllers/following.js";
 import { activitiesController } from "./lib/controllers/activities.js";
-import { migrateGetController, migratePostController, migrateImportController } from "./lib/controllers/migrate.js";
+import {
+  migrateGetController,
+  migratePostController,
+  migrateImportController,
+} from "./lib/controllers/migrate.js";
+import {
+  profileGetController,
+  profilePostController,
+} from "./lib/controllers/profile.js";
 
 const defaults = {
   mountPath: "/activitypub",
@@ -21,8 +32,8 @@ const defaults = {
   },
   checked: true,
   alsoKnownAs: "",
-  activityRetentionDays: 90, // Auto-delete activities older than this (0 = keep forever)
-  storeRawActivities: false, // Store full incoming JSON (enables debugging, costs storage)
+  activityRetentionDays: 90,
+  storeRawActivities: false,
 };
 
 export default class ActivityPubEndpoint {
@@ -33,11 +44,10 @@ export default class ActivityPubEndpoint {
     this.options.actor = { ...defaults.actor, ...options.actor };
     this.mountPath = this.options.mountPath;
 
-    // Set at init time when we have access to Indiekit
     this._publicationUrl = "";
-    this._actorUrl = "";
     this._collections = {};
-    this._federationHandler = null;
+    this._federation = null;
+    this._fedifyMiddleware = null;
   }
 
   get navigationItems() {
@@ -48,127 +58,40 @@ export default class ActivityPubEndpoint {
     };
   }
 
-  // filePath is set by Indiekit's plugin loader via require.resolve()
-
   /**
-   * WebFinger routes — mounted at /.well-known/
+   * WebFinger + NodeInfo discovery — mounted at /.well-known/
+   * Fedify handles these automatically via federation.fetch().
    */
   get routesWellKnown() {
     const router = express.Router(); // eslint-disable-line new-cap
-    const options = this.options;
     const self = this;
 
-    router.get("/webfinger", (request, response) => {
-      const resource = request.query.resource;
-      if (!resource) {
-        return response.status(400).json({ error: "Missing resource parameter" });
-      }
-
-      const result = handleWebFinger(resource, {
-        handle: options.actor.handle,
-        hostname: new URL(self._publicationUrl).hostname,
-        actorUrl: self._actorUrl,
-      });
-
-      if (!result) {
-        return response.status(404).json({ error: "Resource not found" });
-      }
-
-      response.set("Content-Type", "application/jrd+json");
-      return response.json(result);
+    router.use((req, res, next) => {
+      if (!self._fedifyMiddleware) return next();
+      return self._fedifyMiddleware(req, res, next);
     });
 
     return router;
   }
 
   /**
-   * Public federation routes — mounted at mountPath, unauthenticated
+   * Public federation routes — mounted at mountPath.
+   * Fedify handles actor, inbox, outbox, followers, following.
    */
   get routesPublic() {
     const router = express.Router(); // eslint-disable-line new-cap
     const self = this;
 
-    // Actor document (fallback — primary is content negotiation on /)
-    router.get("/actor", async (request, response) => {
-      const actor = await self._getActorDocument();
-      if (!actor) {
-        return response.status(500).json({ error: "Actor not configured" });
-      }
-      response.set("Content-Type", "application/activity+json");
-      return response.json(actor);
-    });
-
-    // Inbox — receive incoming activities
-    router.post("/inbox", express.raw({ type: ["application/activity+json", "application/ld+json", "application/json"] }), async (request, response, next) => {
-      try {
-        if (self._federationHandler) {
-          return await self._federationHandler.handleInbox(request, response);
-        }
-        return response.status(202).json({ status: "accepted" });
-      } catch (error) {
-        next(error);
-      }
-    });
-
-    // Outbox — serve published posts as ActivityStreams
-    router.get("/outbox", async (request, response, next) => {
-      try {
-        if (self._federationHandler) {
-          return await self._federationHandler.handleOutbox(request, response);
-        }
-        response.set("Content-Type", "application/activity+json");
-        return response.json({
-          "@context": "https://www.w3.org/ns/activitystreams",
-          type: "OrderedCollection",
-          totalItems: 0,
-          orderedItems: [],
-        });
-      } catch (error) {
-        next(error);
-      }
-    });
-
-    // Followers collection
-    router.get("/followers", async (request, response, next) => {
-      try {
-        if (self._federationHandler) {
-          return await self._federationHandler.handleFollowers(request, response);
-        }
-        response.set("Content-Type", "application/activity+json");
-        return response.json({
-          "@context": "https://www.w3.org/ns/activitystreams",
-          type: "OrderedCollection",
-          totalItems: 0,
-          orderedItems: [],
-        });
-      } catch (error) {
-        next(error);
-      }
-    });
-
-    // Following collection
-    router.get("/following", async (request, response, next) => {
-      try {
-        if (self._federationHandler) {
-          return await self._federationHandler.handleFollowing(request, response);
-        }
-        response.set("Content-Type", "application/activity+json");
-        return response.json({
-          "@context": "https://www.w3.org/ns/activitystreams",
-          type: "OrderedCollection",
-          totalItems: 0,
-          orderedItems: [],
-        });
-      } catch (error) {
-        next(error);
-      }
+    router.use((req, res, next) => {
+      if (!self._fedifyMiddleware) return next();
+      return self._fedifyMiddleware(req, res, next);
     });
 
     return router;
   }
 
   /**
-   * Authenticated admin routes — mounted at mountPath, behind IndieAuth
+   * Authenticated admin routes — mounted at mountPath, behind IndieAuth.
    */
   get routes() {
     const router = express.Router(); // eslint-disable-line new-cap
@@ -178,23 +101,36 @@ export default class ActivityPubEndpoint {
     router.get("/admin/followers", followersController(mp));
     router.get("/admin/following", followingController(mp));
     router.get("/admin/activities", activitiesController(mp));
+    router.get("/admin/profile", profileGetController(mp));
+    router.post("/admin/profile", profilePostController(mp));
     router.get("/admin/migrate", migrateGetController(mp, this.options));
     router.post("/admin/migrate", migratePostController(mp, this.options));
-    router.post("/admin/migrate/import", migrateImportController(mp, this.options));
+    router.post(
+      "/admin/migrate/import",
+      migrateImportController(mp, this.options),
+    );
 
     return router;
   }
 
   /**
-   * Content negotiation handler — serves AS2 JSON for ActivityPub clients
-   * Registered as a separate endpoint with mountPath "/"
+   * Content negotiation — serves AS2 JSON for ActivityPub clients
+   * requesting individual post URLs. Also handles NodeInfo data
+   * at /nodeinfo/2.1 (delegated to Fedify).
    */
   get contentNegotiationRoutes() {
     const router = express.Router(); // eslint-disable-line new-cap
     const self = this;
 
-    router.get("{*path}", async (request, response, next) => {
-      const accept = request.headers.accept || "";
+    // Let Fedify handle NodeInfo data (/nodeinfo/2.1)
+    router.use((req, res, next) => {
+      if (!self._fedifyMiddleware) return next();
+      return self._fedifyMiddleware(req, res, next);
+    });
+
+    // Content negotiation for AP clients on regular URLs
+    router.get("{*path}", async (req, res, next) => {
+      const accept = req.headers.accept || "";
       const isActivityPub =
         accept.includes("application/activity+json") ||
         accept.includes("application/ld+json");
@@ -204,25 +140,20 @@ export default class ActivityPubEndpoint {
       }
 
       try {
-        // Root URL — serve actor document
-        if (request.path === "/") {
-          const actor = await self._getActorDocument();
-          if (!actor) {
-            return next();
-          }
-          response.set("Content-Type", "application/activity+json");
-          return response.json(actor);
+        // Root URL — redirect to Fedify actor
+        if (req.path === "/") {
+          const actorPath = `${self.options.mountPath}/users/${self.options.actor.handle}`;
+          return res.redirect(actorPath);
         }
 
         // Post URLs — look up in database and convert to AS2
-        const { application } = request.app.locals;
+        const { application } = req.app.locals;
         const postsCollection = application?.collections?.get("posts");
         if (!postsCollection) {
           return next();
         }
 
-        // Try to find a post matching this URL path
-        const requestUrl = `${self._publicationUrl}${request.path.slice(1)}`;
+        const requestUrl = `${self._publicationUrl}${req.path.slice(1)}`;
         const post = await postsCollection.findOne({
           "properties.url": requestUrl,
         });
@@ -231,16 +162,16 @@ export default class ActivityPubEndpoint {
           return next();
         }
 
+        const actorUrl = self._getActorUrl();
         const activity = jf2ToActivityStreams(
           post.properties,
-          self._actorUrl,
+          actorUrl,
           self._publicationUrl,
         );
 
-        // Return the object, not the wrapping Create activity
         const object = activity.object || activity;
-        response.set("Content-Type", "application/activity+json");
-        return response.json({
+        res.set("Content-Type", "application/activity+json");
+        return res.json({
           "@context": [
             "https://www.w3.org/ns/activitystreams",
             "https://w3id.org/security/v1",
@@ -256,30 +187,7 @@ export default class ActivityPubEndpoint {
   }
 
   /**
-   * Build and cache the actor document
-   */
-  async _getActorDocument() {
-    const keysCollection = this._collections.ap_keys;
-    if (!keysCollection) {
-      return null;
-    }
-
-    const keyPair = await getOrCreateKeyPair(keysCollection, this._actorUrl);
-    return buildActorDocument({
-      actorUrl: this._actorUrl,
-      publicationUrl: this._publicationUrl,
-      mountPath: this.options.mountPath,
-      handle: this.options.actor.handle,
-      name: this.options.actor.name,
-      summary: this.options.actor.summary,
-      icon: this.options.actor.icon,
-      alsoKnownAs: this.options.alsoKnownAs,
-      publicKeyPem: keyPair.publicKeyPem,
-    });
-  }
-
-  /**
-   * Syndicator — delivers posts to ActivityPub followers
+   * Syndicator — delivers posts to ActivityPub followers via Fedify.
    */
   get syndicator() {
     const self = this;
@@ -303,21 +211,50 @@ export default class ActivityPubEndpoint {
         };
       },
 
-      async syndicate(properties, publication) {
-        if (!self._federationHandler) {
+      async syndicate(properties) {
+        if (!self._federation) {
           return undefined;
         }
+
         try {
-          return await self._federationHandler.deliverToFollowers(
+          const actorUrl = self._getActorUrl();
+          const activity = jf2ToAS2Activity(
             properties,
-            publication,
+            actorUrl,
+            self._publicationUrl,
           );
+
+          if (!activity) {
+            return undefined;
+          }
+
+          const ctx = self._federation.createContext(
+            new URL(self._publicationUrl),
+            {},
+          );
+
+          await ctx.sendActivity(
+            { identifier: self.options.actor.handle },
+            "followers",
+            activity,
+          );
+
+          return properties.url || undefined;
         } catch (error) {
           console.error("[ActivityPub] Syndication failed:", error.message);
           return undefined;
         }
       },
     };
+  }
+
+  /**
+   * Build the full actor URL from config.
+   * @returns {string}
+   */
+  _getActorUrl() {
+    const base = this._publicationUrl.replace(/\/$/, "");
+    return `${base}${this.options.mountPath}/users/${this.options.actor.handle}`;
   }
 
   init(Indiekit) {
@@ -327,23 +264,31 @@ export default class ActivityPubEndpoint {
         ? Indiekit.publication.me
         : `${Indiekit.publication.me}/`
       : "";
-    this._actorUrl = this._publicationUrl;
 
     // Register MongoDB collections
     Indiekit.addCollection("ap_followers");
     Indiekit.addCollection("ap_following");
     Indiekit.addCollection("ap_activities");
     Indiekit.addCollection("ap_keys");
+    Indiekit.addCollection("ap_kv");
+    Indiekit.addCollection("ap_profile");
 
-    // Store collection references for later use
+    // Store collection references (posts resolved lazily)
+    const indiekitCollections = Indiekit.collections;
     this._collections = {
-      ap_followers: Indiekit.collections.get("ap_followers"),
-      ap_following: Indiekit.collections.get("ap_following"),
-      ap_activities: Indiekit.collections.get("ap_activities"),
-      ap_keys: Indiekit.collections.get("ap_keys"),
+      ap_followers: indiekitCollections.get("ap_followers"),
+      ap_following: indiekitCollections.get("ap_following"),
+      ap_activities: indiekitCollections.get("ap_activities"),
+      ap_keys: indiekitCollections.get("ap_keys"),
+      ap_kv: indiekitCollections.get("ap_kv"),
+      ap_profile: indiekitCollections.get("ap_profile"),
+      get posts() {
+        return indiekitCollections.get("posts");
+      },
+      _publicationUrl: this._publicationUrl,
     };
 
-    // Set up TTL index so ap_activities self-cleans (MongoDB handles expiry)
+    // TTL index for activity cleanup (MongoDB handles expiry automatically)
     const retentionDays = this.options.activityRetentionDays;
     if (retentionDays > 0) {
       this._collections.ap_activities.createIndex(
@@ -352,28 +297,64 @@ export default class ActivityPubEndpoint {
       );
     }
 
-    // Initialize federation handler
-    this._federationHandler = createFederationHandler({
-      actorUrl: this._actorUrl,
-      publicationUrl: this._publicationUrl,
-      mountPath: this.options.mountPath,
-      actorConfig: this.options.actor,
-      alsoKnownAs: this.options.alsoKnownAs,
+    // Seed actor profile from config on first run
+    this._seedProfile().catch((error) => {
+      console.warn("[ActivityPub] Profile seed failed:", error.message);
+    });
+
+    // Set up Fedify Federation instance
+    const { federation } = setupFederation({
       collections: this._collections,
+      mountPath: this.options.mountPath,
+      handle: this.options.actor.handle,
       storeRawActivities: this.options.storeRawActivities,
     });
 
-    // Register as endpoint (adds routes)
+    this._federation = federation;
+    this._fedifyMiddleware = createFedifyMiddleware(federation, () => ({}));
+
+    // Register as endpoint (mounts routesPublic, routesWellKnown, routes)
     Indiekit.addEndpoint(this);
 
-    // Register content negotiation handler as a virtual endpoint
+    // Content negotiation + NodeInfo — virtual endpoint at root
     Indiekit.addEndpoint({
       name: "ActivityPub content negotiation",
       mountPath: "/",
       routesPublic: this.contentNegotiationRoutes,
     });
 
-    // Register as syndicator (appears in post UI)
+    // Register syndicator (appears in post editing UI)
     Indiekit.addSyndicator(this.syndicator);
+  }
+
+  /**
+   * Seed the ap_profile collection from config options on first run.
+   * Only creates a profile if none exists — preserves UI edits.
+   */
+  async _seedProfile() {
+    const { ap_profile } = this._collections;
+    const existing = await ap_profile.findOne({});
+
+    if (existing) {
+      return;
+    }
+
+    const profile = {
+      name: this.options.actor.name || this.options.actor.handle,
+      summary: this.options.actor.summary || "",
+      url: this._publicationUrl,
+      icon: this.options.actor.icon || "",
+      manuallyApprovesFollowers: false,
+      createdAt: new Date().toISOString(),
+    };
+
+    // Only include alsoKnownAs if explicitly configured
+    if (this.options.alsoKnownAs) {
+      profile.alsoKnownAs = Array.isArray(this.options.alsoKnownAs)
+        ? this.options.alsoKnownAs
+        : [this.options.alsoKnownAs];
+    }
+
+    await ap_profile.insertOne(profile);
   }
 }

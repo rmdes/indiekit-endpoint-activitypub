@@ -1,0 +1,74 @@
+{% extends "document.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+{% from "input/macro.njk" import input with context %}
+{% from "textarea/macro.njk" import textarea with context %}
+{% from "checkboxes/macro.njk" import checkboxes with context %}
+{% from "button/macro.njk" import button with context %}
+{% from "notification-banner/macro.njk" import notificationBanner with context %}
+{% from "prose/macro.njk" import prose with context %}
+
+{% block content %}
+  {{ heading({ text: title, level: 1, parent: { text: __("activitypub.title"), href: mountPath } }) }}
+
+  {% if result %}
+    {{ notificationBanner({ type: result.type, text: result.text }) }}
+  {% endif %}
+
+  {{ prose({ text: __("activitypub.profile.intro") }) }}
+
+  <form method="post" novalidate>
+    {{ input({
+      name: "name",
+      label: __("activitypub.profile.nameLabel"),
+      hint: __("activitypub.profile.nameHint"),
+      value: profile.name
+    }) }}
+
+    {{ textarea({
+      name: "summary",
+      label: __("activitypub.profile.summaryLabel"),
+      hint: __("activitypub.profile.summaryHint"),
+      value: profile.summary,
+      rows: 4
+    }) }}
+
+    {{ input({
+      name: "url",
+      label: __("activitypub.profile.urlLabel"),
+      hint: __("activitypub.profile.urlHint"),
+      value: profile.url,
+      type: "url"
+    }) }}
+
+    {{ input({
+      name: "icon",
+      label: __("activitypub.profile.iconLabel"),
+      hint: __("activitypub.profile.iconHint"),
+      value: profile.icon,
+      type: "url"
+    }) }}
+
+    {{ input({
+      name: "image",
+      label: __("activitypub.profile.imageLabel"),
+      hint: __("activitypub.profile.imageHint"),
+      value: profile.image,
+      type: "url"
+    }) }}
+
+    {{ checkboxes({
+      name: "manuallyApprovesFollowers",
+      items: [
+        {
+          label: __("activitypub.profile.manualApprovalLabel"),
+          value: "true",
+          hint: __("activitypub.profile.manualApprovalHint")
+        }
+      ],
+      values: ["true"] if profile.manuallyApprovesFollowers else []
+    }) }}
+
+    {{ button({ text: __("activitypub.profile.save") }) }}
+  </form>
+{% endblock %}
