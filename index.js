@@ -84,6 +84,9 @@ export default class ActivityPubEndpoint {
 
     router.use((req, res, next) => {
       if (!self._fedifyMiddleware) return next();
+      // Skip Fedify for admin UI routes — they're handled by the
+      // authenticated `routes` getter, not the federation layer.
+      if (req.path.startsWith("/admin")) return next();
       return self._fedifyMiddleware(req, res, next);
     });
 
