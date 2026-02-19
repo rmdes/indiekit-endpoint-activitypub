@@ -178,7 +178,7 @@ export default class ActivityPubEndpoint {
     router.get("/admin/followers", followersController(mp));
     router.get("/admin/following", followingController(mp));
     router.get("/admin/activities", activitiesController(mp));
-    router.get("/admin/migrate", migrateGetController(mp));
+    router.get("/admin/migrate", migrateGetController(mp, this.options));
     router.post("/admin/migrate", migratePostController(mp, this.options));
 
     return router;

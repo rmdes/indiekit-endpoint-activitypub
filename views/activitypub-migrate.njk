@@ -5,9 +5,9 @@
 {% from "button/macro.njk" import button with context %}
 {% from "checkboxes/macro.njk" import checkboxes with context %}
 {% from "file-input/macro.njk" import fileInput with context %}
-{% from "details/macro.njk" import details with context %}
 {% from "notification-banner/macro.njk" import notificationBanner with context %}
 {% from "prose/macro.njk" import prose with context %}
+{% from "badge/macro.njk" import badge with context %}
 
 {% block content %}
   {{ heading({ text: title, level: 1, parent: { text: __("activitypub.title"), href: mountPath } }) }}
@@ -16,9 +16,20 @@
     {{ notificationBanner({ type: result.type, text: result.text }) }}
   {% endif %}
 
+  {{ prose({ text: __("activitypub.migrate.intro") }) }}
+
   {# Step 1 — Actor alias #}
   {{ heading({ text: __("activitypub.migrate.step1Title"), level: 2 }) }}
   {{ prose({ text: __("activitypub.migrate.step1Desc") }) }}
+
+  {% if currentAlias %}
+    <p>
+      <strong>{{ __("activitypub.migrate.aliasCurrent") }}:</strong>
+      <a href="{{ currentAlias }}">{{ currentAlias }}</a>
+    </p>
+  {% else %}
+    <p><em>{{ __("activitypub.migrate.aliasNone") }}</em></p>
+  {% endif %}
 
   <form method="post" novalidate>
     <input type="hidden" name="action" value="alias">
@@ -26,6 +37,7 @@
       name: "aliasUrl",
       label: __("activitypub.migrate.aliasLabel"),
       hint: __("activitypub.migrate.aliasHint"),
+      value: currentAlias,
       type: "url"
     }) }}
     {{ button({ text: __("activitypub.migrate.aliasSave") }) }}
@@ -42,9 +54,20 @@
 
     {{ checkboxes({
       name: "importTypes",
+      fieldset: {
+        legend: __("activitypub.migrate.importLegend")
+      },
       items: [
-        { value: "following", text: __("activitypub.migrate.importFollowing") },
-        { value: "followers", text: __("activitypub.migrate.importFollowers") }
+        {
+          label: __("activitypub.migrate.importFollowing"),
+          value: "following",
+          hint: __("activitypub.migrate.importFollowingHint")
+        },
+        {
+          label: __("activitypub.migrate.importFollowers"),
+          value: "followers",
+          hint: __("activitypub.migrate.importFollowersHint")
+        }
       ],
       values: ["following"]
     }) }}
