@@ -9,7 +9,7 @@ import { dashboardController } from "./lib/controllers/dashboard.js";
 import { followersController } from "./lib/controllers/followers.js";
 import { followingController } from "./lib/controllers/following.js";
 import { activitiesController } from "./lib/controllers/activities.js";
-import { migrateGetController, migratePostController } from "./lib/controllers/migrate.js";
+import { migrateGetController, migratePostController, migrateImportController } from "./lib/controllers/migrate.js";
 
 const defaults = {
   mountPath: "/activitypub",
@@ -179,7 +179,8 @@ export default class ActivityPubEndpoint {
     router.get("/admin/following", followingController(mp));
     router.get("/admin/activities", activitiesController(mp));
     router.get("/admin/migrate", migrateGetController(mp, this.options));
-    router.post("/admin/migrate", express.urlencoded({ extended: true, limit: "5mb" }), migratePostController(mp, this.options));
+    router.post("/admin/migrate", migratePostController(mp, this.options));
+    router.post("/admin/migrate/import", express.json({ limit: "5mb" }), migrateImportController(mp, this.options));
 
     return router;
   }

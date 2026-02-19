@@ -47,9 +47,7 @@
   {{ heading({ text: __("activitypub.migrate.step2Title"), level: 2 }) }}
   {{ prose({ text: __("activitypub.migrate.step2Desc") }) }}
 
-  <form method="post" novalidate x-data="csvImport()">
-    <input type="hidden" name="action" value="import">
-    <input type="hidden" name="csvContent" :value="csvContent">
+  <div x-data="csvImport('{{ mountPath }}')">
 
     {{ checkboxes({
       name: "importTypes",
@@ -86,8 +84,31 @@
       </template>
     </div>
 
-    {{ button({ text: __("activitypub.migrate.importButton") }) }}
-  </form>
+    <button class="button" type="button"
+            :disabled="importing || !csvContent"
+            @click="startImport()">
+      <span x-show="!importing">{{ __("activitypub.migrate.importButton") }}</span>
+      <span x-show="importing" x-text="statusText"></span>
+    </button>
+
+    {# Result notification #}
+    <template x-if="resultType">
+      <div :class="'notification-banner notification-banner--' + resultType"
+           role="alert" style="margin-top: 1em">
+        <p x-text="resultText"></p>
+        <template x-if="resultErrors.length > 0">
+          <details style="margin-top: 0.5em">
+            <summary>{{ __("activitypub.migrate.failedListSummary") }} (<span x-text="resultErrors.length"></span>)</summary>
+            <ul style="margin-top: 0.5em; font-size: 0.875em">
+              <template x-for="err in resultErrors" :key="err">
+                <li x-text="err"></li>
+              </template>
+            </ul>
+          </details>
+        </template>
+      </div>
+    </template>
+  </div>
 
   <hr>
 
@@ -96,12 +117,17 @@
   {{ prose({ text: __("activitypub.migrate.step3Desc") }) }}
 
   <script>
-  function csvImport() {
+  function csvImport(mountPath) {
     return {
       csvContent: '',
       fileName: '',
       lineCount: 0,
       fileError: '',
+      importing: false,
+      statusText: '',
+      resultType: '',
+      resultText: '',
+      resultErrors: [],
 
       readFile(event) {
         var self = this;
@@ -109,6 +135,9 @@
         self.fileName = '';
         self.lineCount = 0;
         self.fileError = '';
+        self.resultType = '';
+        self.resultText = '';
+        self.resultErrors = [];
 
         var file = event.target.files[0];
         if (!file) return;
@@ -130,6 +159,58 @@
           self.fileError = 'Could not read file';
         };
         reader.readAsText(file);
+      },
+
+      async startImport() {
+        var self = this;
+        self.importing = true;
+        self.resultType = '';
+        self.resultText = '';
+        self.resultErrors = [];
+        self.statusText = 'Importing\u2026';
+
+        // Collect checked import types
+        var checkboxes = document.querySelectorAll('input[name="importTypes"]:checked');
+        var importTypes = [];
+        for (var i = 0; i < checkboxes.length; i++) {
+          importTypes.push(checkboxes[i].value);
+        }
+
+        if (importTypes.length === 0) {
+          self.importing = false;
+          self.resultType = 'error';
+          self.resultText = 'Please select at least one import type.';
+          return;
+        }
+
+        try {
+          var res = await fetch(mountPath + '/admin/migrate/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              csvContent: self.csvContent,
+              importTypes: importTypes
+            })
+          });
+
+          if (!res.ok) {
+            var errBody = await res.text();
+            throw new Error('Server error (' + res.status + '): ' + errBody);
+          }
+
+          var data = await res.json();
+          self.resultType = data.type;
+          self.resultText = 'Imported ' + (data.followingImported || 0) + ' following, '
+            + (data.followersImported || 0) + ' followers'
+            + (data.failed > 0 ? ' (' + data.failed + ' failed)' : '') + '.';
+          self.resultErrors = data.errors || [];
+        } catch (err) {
+          self.resultType = 'error';
+          self.resultText = err.message;
+        }
+
+        self.importing = false;
+        self.statusText = '';
       }
     };
   }

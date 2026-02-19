@@ -44,6 +44,7 @@
       "errorNoFile": "Please select a CSV file before importing.",
       "success": "Imported %d following, %d followers (%d failed).",
       "failedList": "Could not resolve: %s",
+      "failedListSummary": "Failed handles",
       "aliasSuccess": "Alias saved — your actor document now includes this account as alsoKnownAs."
     }
   }
