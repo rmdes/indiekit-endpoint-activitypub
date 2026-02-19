@@ -4,10 +4,8 @@
 {% from "input/macro.njk" import input with context %}
 {% from "button/macro.njk" import button with context %}
 {% from "checkboxes/macro.njk" import checkboxes with context %}
-{% from "file-input/macro.njk" import fileInput with context %}
 {% from "notification-banner/macro.njk" import notificationBanner with context %}
 {% from "prose/macro.njk" import prose with context %}
-{% from "badge/macro.njk" import badge with context %}
 
 {% block content %}
   {{ heading({ text: title, level: 1, parent: { text: __("activitypub.title"), href: mountPath } }) }}
@@ -49,8 +47,9 @@
   {{ heading({ text: __("activitypub.migrate.step2Title"), level: 2 }) }}
   {{ prose({ text: __("activitypub.migrate.step2Desc") }) }}
 
-  <form method="post" enctype="multipart/form-data" novalidate>
+  <form method="post" novalidate x-data="csvImport()">
     <input type="hidden" name="action" value="import">
+    <input type="hidden" name="csvContent" :value="csvContent">
 
     {{ checkboxes({
       name: "importTypes",
@@ -72,12 +71,20 @@
       values: ["following"]
     }) }}
 
-    {{ fileInput({
-      name: "csvFile",
-      label: __("activitypub.migrate.fileLabel"),
-      hint: __("activitypub.migrate.fileHint"),
-      accept: ".csv,.txt"
-    }) }}
+    <div class="field">
+      <label class="label" for="csvFile">{{ __("activitypub.migrate.fileLabel") }}</label>
+      <p class="hint">{{ __("activitypub.migrate.fileHint") }}</p>
+      <input class="input" type="file" id="csvFile" accept=".csv,.txt"
+             @change="readFile($event)">
+      <template x-if="fileName">
+        <p class="hint" style="margin-top: 0.5em">
+          <strong x-text="fileName"></strong> — <span x-text="lineCount + ' lines'"></span>
+        </p>
+      </template>
+      <template x-if="fileError">
+        <p class="hint" style="margin-top: 0.5em; color: var(--color-error, #d4351c)" x-text="fileError"></p>
+      </template>
+    </div>
 
     {{ button({ text: __("activitypub.migrate.importButton") }) }}
   </form>
@@ -87,4 +94,44 @@
   {# Step 3 — Instructions #}
   {{ heading({ text: __("activitypub.migrate.step3Title"), level: 2 }) }}
   {{ prose({ text: __("activitypub.migrate.step3Desc") }) }}
+
+  <script>
+  function csvImport() {
+    return {
+      csvContent: '',
+      fileName: '',
+      lineCount: 0,
+      fileError: '',
+
+      readFile(event) {
+        var self = this;
+        self.csvContent = '';
+        self.fileName = '';
+        self.lineCount = 0;
+        self.fileError = '';
+
+        var file = event.target.files[0];
+        if (!file) return;
+
+        if (file.size > 5 * 1024 * 1024) {
+          self.fileError = 'File too large (max 5 MB)';
+          event.target.value = '';
+          return;
+        }
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+          var text = e.target.result;
+          self.csvContent = text;
+          self.fileName = file.name;
+          self.lineCount = text.split('\n').filter(function(l) { return l.trim(); }).length;
+        };
+        reader.onerror = function() {
+          self.fileError = 'Could not read file';
+        };
+        reader.readAsText(file);
+      }
+    };
+  }
+  </script>
 {% endblock %}
