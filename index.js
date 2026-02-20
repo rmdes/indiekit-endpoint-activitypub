@@ -149,11 +149,11 @@ export default class ActivityPubEndpoint {
     router.get("/admin/following", followingController(mp));
     router.get("/admin/activities", activitiesController(mp));
     router.get("/admin/featured", featuredGetController(mp));
-    router.post("/admin/featured/pin", featuredPinController());
-    router.post("/admin/featured/unpin", featuredUnpinController());
+    router.post("/admin/featured/pin", featuredPinController(mp));
+    router.post("/admin/featured/unpin", featuredUnpinController(mp));
     router.get("/admin/tags", featuredTagsGetController(mp));
-    router.post("/admin/tags/add", featuredTagsAddController());
-    router.post("/admin/tags/remove", featuredTagsRemoveController());
+    router.post("/admin/tags/add", featuredTagsAddController(mp));
+    router.post("/admin/tags/remove", featuredTagsRemoveController(mp));
     router.get("/admin/profile", profileGetController(mp));
     router.post("/admin/profile", profilePostController(mp));
     router.get("/admin/migrate", migrateGetController(mp, this.options));
