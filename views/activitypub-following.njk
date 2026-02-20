@@ -11,17 +11,21 @@
 
   {% if following.length > 0 %}
     {% for account in following %}
+      {% if account.source === "import" %}
+        {% set sourceBadge = __("activitypub.sourceImport") %}
+      {% elif account.source === "refollow:sent" %}
+        {% set sourceBadge = __("activitypub.sourceRefollowPending") %}
+      {% elif account.source === "refollow:failed" %}
+        {% set sourceBadge = __("activitypub.sourceRefollowFailed") %}
+      {% else %}
+        {% set sourceBadge = __("activitypub.sourceFederation") %}
+      {% endif %}
       {{ card({
         title: account.name or account.handle or account.actorUrl,
         url: account.actorUrl,
         description: { text: "@" + account.handle if account.handle },
         published: account.followedAt,
-        badges: [{
-          text: __("activitypub.sourceImport") if account.source === "import"
-            else __("activitypub.sourceRefollowPending") if account.source === "refollow:sent"
-            else __("activitypub.sourceRefollowFailed") if account.source === "refollow:failed"
-            else __("activitypub.sourceFederation")
-        }]
+        badges: [{ text: sourceBadge }]
       }) }}
     {% endfor %}
 

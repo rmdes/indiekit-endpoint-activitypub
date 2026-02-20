@@ -261,10 +261,50 @@ export default class ActivityPubEndpoint {
 
         try {
           const actorUrl = self._getActorUrl();
+          const handle = self.options.actor.handle;
+
+          const ctx = self._federation.createContext(
+            new URL(self._publicationUrl),
+            {},
+          );
+
+          // For replies, resolve the original post author for proper
+          // addressing (CC) and direct inbox delivery
+          let replyToActor = null;
+          if (properties["in-reply-to"]) {
+            try {
+              const remoteObject = await ctx.lookupObject(
+                new URL(properties["in-reply-to"]),
+              );
+              if (remoteObject && typeof remoteObject.getAttributedTo === "function") {
+                const author = await remoteObject.getAttributedTo();
+                const authorActor = Array.isArray(author) ? author[0] : author;
+                if (authorActor?.id) {
+                  replyToActor = {
+                    url: authorActor.id.href,
+                    handle: authorActor.preferredUsername || null,
+                    recipient: authorActor,
+                  };
+                  console.info(
+                    `[ActivityPub] Reply to ${properties["in-reply-to"]} — resolved author: ${replyToActor.url}`,
+                  );
+                }
+              }
+            } catch (error) {
+              console.warn(
+                `[ActivityPub] Could not resolve reply-to author for ${properties["in-reply-to"]}: ${error.message}`,
+              );
+            }
+          }
+
           const activity = jf2ToAS2Activity(
             properties,
             actorUrl,
             self._publicationUrl,
+            {
+              replyToActorUrl: replyToActor?.url,
+              replyToActorHandle: replyToActor?.handle,
+            },
           );
 
           if (!activity) {
@@ -278,11 +318,6 @@ export default class ActivityPubEndpoint {
             return undefined;
           }
 
-          const ctx = self._federation.createContext(
-            new URL(self._publicationUrl),
-            {},
-          );
-
           // Count followers for logging
           const followerCount =
             await self._collections.ap_followers.countDocuments();
@@ -291,26 +326,50 @@ export default class ActivityPubEndpoint {
             `[ActivityPub] Sending ${activity.constructor?.name || "activity"} for ${properties.url} to ${followerCount} followers`,
           );
 
+          // Send to followers
           await ctx.sendActivity(
-            { identifier: self.options.actor.handle },
+            { identifier: handle },
             "followers",
             activity,
           );
 
+          // For replies, also deliver to the original post author's inbox
+          // so their server can thread the reply under the original post
+          if (replyToActor?.recipient) {
+            try {
+              await ctx.sendActivity(
+                { identifier: handle },
+                replyToActor.recipient,
+                activity,
+              );
+              console.info(
+                `[ActivityPub] Reply delivered to author: ${replyToActor.url}`,
+              );
+            } catch (error) {
+              console.warn(
+                `[ActivityPub] Failed to deliver reply to ${replyToActor.url}: ${error.message}`,
+              );
+            }
+          }
+
           // Determine activity type name
           const typeName =
             activity.constructor?.name || "Create";
+          const replyNote = replyToActor
+            ? ` (reply to ${replyToActor.url})`
+            : "";
 
           await logActivity(self._collections.ap_activities, {
             direction: "outbound",
             type: typeName,
             actorUrl: self._publicationUrl,
             objectUrl: properties.url,
-            summary: `Sent ${typeName} for ${properties.url} to ${followerCount} followers`,
+            targetUrl: replyToActor?.url || undefined,
+            summary: `Sent ${typeName} for ${properties.url} to ${followerCount} followers${replyNote}`,
           });
 
           console.info(
-            `[ActivityPub] Syndication queued: ${typeName} for ${properties.url}`,
+            `[ActivityPub] Syndication queued: ${typeName} for ${properties.url}${replyNote}`,
           );
 
           return properties.url || undefined;
