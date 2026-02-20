@@ -39,8 +39,8 @@
     {# Progress bar #}
     <div style="background: var(--color-offset); border-radius: 4px; height: 1.5rem; margin-block-end: var(--space-m); overflow: hidden;">
       <div
-        x-bind:style="'width:' + progress + '%; background: var(--color-accent); height: 100%; transition: width 0.5s ease;'"
-        style="width: {{ refollowStatus.progressPercent }}%; background: var(--color-accent); height: 100%; transition: width 0.5s ease;">
+        x-bind:style="'width:' + progress + '%; height: 100%; transition: width 0.5s ease; background: var(--color-primary);'"
+        style="width: {{ refollowStatus.progressPercent }}%; height: 100%; transition: width 0.5s ease; background: var(--color-primary);">
       </div>
     </div>
 
@@ -48,39 +48,42 @@
     <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-s); margin-block-end: var(--space-m);">
       <div style="padding: var(--space-s); background: var(--color-offset); border-radius: 4px; text-align: center;">
         <div style="font-size: var(--font-size-xl);" x-text="remaining">{{ refollowStatus.remaining }}</div>
-        <div style="font-size: var(--font-size-s); color: var(--color-text-offset);">{{ __("activitypub.refollow.remaining") }}</div>
+        <div style="font-size: var(--font-size-s); color: var(--color-outline);">{{ __("activitypub.refollow.remaining") }}</div>
       </div>
       <div style="padding: var(--space-s); background: var(--color-offset); border-radius: 4px; text-align: center;">
         <div style="font-size: var(--font-size-xl);" x-text="sent">{{ refollowStatus.sent }}</div>
-        <div style="font-size: var(--font-size-s); color: var(--color-text-offset);">{{ __("activitypub.refollow.awaitingAccept") }}</div>
+        <div style="font-size: var(--font-size-s); color: var(--color-outline);">{{ __("activitypub.refollow.awaitingAccept") }}</div>
       </div>
       <div style="padding: var(--space-s); background: var(--color-offset); border-radius: 4px; text-align: center;">
         <div style="font-size: var(--font-size-xl);" x-text="federated">{{ refollowStatus.federated }}</div>
-        <div style="font-size: var(--font-size-s); color: var(--color-text-offset);">{{ __("activitypub.refollow.accepted") }}</div>
+        <div style="font-size: var(--font-size-s); color: var(--color-outline);">{{ __("activitypub.refollow.accepted") }}</div>
       </div>
       <div style="padding: var(--space-s); background: var(--color-offset); border-radius: 4px; text-align: center;">
         <div style="font-size: var(--font-size-xl);" x-text="failed">{{ refollowStatus.failed }}</div>
-        <div style="font-size: var(--font-size-s); color: var(--color-text-offset);">{{ __("activitypub.refollow.failed") }}</div>
+        <div style="font-size: var(--font-size-s); color: var(--color-outline);">{{ __("activitypub.refollow.failed") }}</div>
       </div>
     </div>
 
     {# Status + controls #}
     <div style="display: flex; align-items: center; gap: var(--space-s);">
-      {{ badge({ text: __("activitypub.refollow.status." + refollowStatus.status) }) }}
-      {% if refollowStatus.status === "running" %}
-        <form method="post" action="{{ mountPath }}/admin/refollow/pause" x-on:submit.prevent="pause">
-          <button type="submit" class="button" style="font-size: var(--font-size-s);">{{ __("activitypub.refollow.pause") }}</button>
-        </form>
-      {% elif refollowStatus.status === "paused" %}
-        <form method="post" action="{{ mountPath }}/admin/refollow/resume" x-on:submit.prevent="resume">
-          <button type="submit" class="button" style="font-size: var(--font-size-s);">{{ __("activitypub.refollow.resume") }}</button>
-        </form>
-      {% endif %}
+      <span class="badge" x-text="statusLabel">{{ __("activitypub.refollow.status." + refollowStatus.status) }}</span>
+      <form x-show="status === 'running'" method="post" action="{{ mountPath }}/admin/refollow/pause" x-on:submit.prevent="pause" style="display: none;">
+        <button type="submit" class="button" style="font-size: var(--font-size-s);">{{ __("activitypub.refollow.pause") }}</button>
+      </form>
+      <form x-show="status === 'paused'" method="post" action="{{ mountPath }}/admin/refollow/resume" x-on:submit.prevent="resume" style="display: none;">
+        <button type="submit" class="button" style="font-size: var(--font-size-s);">{{ __("activitypub.refollow.resume") }}</button>
+      </form>
     </div>
   </section>
 
   <script>
     function refollowProgress(mountPath) {
+      const statusLabels = {
+        idle: '{{ __("activitypub.refollow.status.idle") }}',
+        running: '{{ __("activitypub.refollow.status.running") }}',
+        paused: '{{ __("activitypub.refollow.status.paused") }}',
+        completed: '{{ __("activitypub.refollow.status.completed") }}'
+      };
       return {
         progress: {{ refollowStatus.progressPercent }},
         remaining: {{ refollowStatus.remaining }},
@@ -89,6 +92,9 @@
         failed: {{ refollowStatus.failed }},
         status: '{{ refollowStatus.status }}',
         interval: null,
+        get statusLabel() {
+          return statusLabels[this.status] || this.status;
+        },
         init() {
           if (this.status === 'running' || this.status === 'paused') {
             this.interval = setInterval(() => this.poll(), 10000);
@@ -100,6 +106,7 @@
         async poll() {
           try {
             const res = await fetch(mountPath + '/admin/refollow/status');
+            if (!res.ok) return;
             const data = await res.json();
             this.progress = data.progressPercent;
             this.remaining = data.remaining;
@@ -113,14 +120,16 @@
           } catch {}
         },
         async pause() {
-          await fetch(mountPath + '/admin/refollow/pause', { method: 'POST' });
-          this.status = 'paused';
+          const res = await fetch(mountPath + '/admin/refollow/pause', { method: 'POST' });
+          if (res.ok) this.status = 'paused';
         },
         async resume() {
-          await fetch(mountPath + '/admin/refollow/resume', { method: 'POST' });
-          this.status = 'running';
-          if (!this.interval) {
-            this.interval = setInterval(() => this.poll(), 10000);
+          const res = await fetch(mountPath + '/admin/refollow/resume', { method: 'POST' });
+          if (res.ok) {
+            this.status = 'running';
+            if (!this.interval) {
+              this.interval = setInterval(() => this.poll(), 10000);
+            }
           }
         }
       };
