@@ -4,6 +4,8 @@
     "followers": "Followers",
     "following": "Following",
     "activities": "Activity log",
+    "featured": "Pinned Posts",
+    "featuredTags": "Featured Tags",
     "recentActivity": "Recent activity",
     "noActivity": "No activity yet. Once your actor is federated, interactions will appear here.",
     "noFollowers": "No followers yet.",
@@ -36,6 +38,8 @@
       "imageHint": "URL to a banner image shown at the top of your profile",
       "manualApprovalLabel": "Manually approve followers",
       "manualApprovalHint": "When enabled, follow requests require your approval before they take effect",
+      "authorizedFetchLabel": "Require authorized fetch (secure mode)",
+      "authorizedFetchHint": "When enabled, only servers with valid HTTP Signatures can fetch your actor and collections. This improves privacy but may reduce compatibility with some clients.",
       "save": "Save profile",
       "saved": "Profile saved. Changes are now visible to the fediverse."
     },

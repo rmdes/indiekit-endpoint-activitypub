@@ -69,6 +69,18 @@
       values: ["true"] if profile.manuallyApprovesFollowers else []
     }) }}
 
+    {{ checkboxes({
+      name: "authorizedFetch",
+      items: [
+        {
+          label: __("activitypub.profile.authorizedFetchLabel"),
+          value: "true",
+          hint: __("activitypub.profile.authorizedFetchHint")
+        }
+      ],
+      values: ["true"] if profile.authorizedFetch else []
+    }) }}
+
     {{ button({ text: __("activitypub.profile.save") }) }}
   </form>
 {% endblock %}

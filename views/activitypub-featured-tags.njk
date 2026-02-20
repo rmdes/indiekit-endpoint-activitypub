@@ -1,0 +1,43 @@
+{% extends "document.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+{% from "prose/macro.njk" import prose with context %}
+
+{% block content %}
+  {{ heading({ text: title, level: 1, parent: { text: __("activitypub.title"), href: mountPath } }) }}
+
+  {% if tags.length > 0 %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Tag</th>
+          <th>Added</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in tags %}
+          <tr>
+            <td>#{{ item.tag }}</td>
+            <td>{% if item.addedAt %}{{ item.addedAt | date("PPp") }}{% endif %}</td>
+            <td>
+              <form method="post" action="{{ mountPath }}/admin/tags/remove">
+                <input type="hidden" name="tag" value="{{ item.tag }}">
+                <button type="submit" class="button button--small">Remove</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    {{ prose({ text: "No featured tags yet. Add a hashtag to help others discover your content." }) }}
+  {% endif %}
+
+  <h2>Add a featured tag</h2>
+  <form method="post" action="{{ mountPath }}/admin/tags/add">
+    <label for="tag">Hashtag</label>
+    <input type="text" id="tag" name="tag" placeholder="indieweb" required>
+    <button type="submit" class="button">Add tag</button>
+  </form>
+{% endblock %}

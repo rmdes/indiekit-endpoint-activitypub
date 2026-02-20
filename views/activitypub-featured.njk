@@ -1,0 +1,52 @@
+{% extends "document.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+{% from "prose/macro.njk" import prose with context %}
+
+{% block content %}
+  {{ heading({ text: title, level: 1, parent: { text: __("activitypub.title"), href: mountPath } }) }}
+
+  {% if pinned.length > 0 %}
+    <table class="table">
+      <thead>
+        <tr>
+          <th>Post</th>
+          <th>Type</th>
+          <th>Pinned</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in pinned %}
+          <tr>
+            <td><a href="{{ item.postUrl }}">{{ item.title }}</a></td>
+            <td>{{ item.postType }}</td>
+            <td>{% if item.pinnedAt %}{{ item.pinnedAt | date("PPp") }}{% endif %}</td>
+            <td>
+              <form method="post" action="{{ mountPath }}/admin/featured/unpin">
+                <input type="hidden" name="postUrl" value="{{ item.postUrl }}">
+                <button type="submit" class="button button--small">Unpin</button>
+              </form>
+            </td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  {% else %}
+    {{ prose({ text: "No pinned posts yet." }) }}
+  {% endif %}
+
+  {% if canPin and availablePosts.length > 0 %}
+    <h2>Pin a post ({{ pinned.length }}/{{ maxPins }})</h2>
+    <form method="post" action="{{ mountPath }}/admin/featured/pin">
+      <select name="postUrl">
+        {% for post in availablePosts %}
+          <option value="{{ post.url }}">{{ post.title }} ({{ post.postType }})</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="button">Pin</button>
+    </form>
+  {% elif not canPin %}
+    {{ prose({ text: "Maximum of " + maxPins + " pinned posts reached. Unpin one to add another." }) }}
+  {% endif %}
+{% endblock %}

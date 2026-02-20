@@ -22,6 +22,16 @@ import {
   profilePostController,
 } from "./lib/controllers/profile.js";
 import {
+  featuredGetController,
+  featuredPinController,
+  featuredUnpinController,
+} from "./lib/controllers/featured.js";
+import {
+  featuredTagsGetController,
+  featuredTagsAddController,
+  featuredTagsRemoveController,
+} from "./lib/controllers/featured-tags.js";
+import {
   refollowPauseController,
   refollowResumeController,
   refollowStatusController,
@@ -42,6 +52,8 @@ const defaults = {
   activityRetentionDays: 90,
   storeRawActivities: false,
   redisUrl: "",
+  parallelWorkers: 5,
+  actorType: "Person",
 };
 
 export default class ActivityPubEndpoint {
@@ -136,6 +148,12 @@ export default class ActivityPubEndpoint {
     router.get("/admin/followers", followersController(mp));
     router.get("/admin/following", followingController(mp));
     router.get("/admin/activities", activitiesController(mp));
+    router.get("/admin/featured", featuredGetController(mp));
+    router.post("/admin/featured/pin", featuredPinController());
+    router.post("/admin/featured/unpin", featuredUnpinController());
+    router.get("/admin/tags", featuredTagsGetController(mp));
+    router.post("/admin/tags/add", featuredTagsAddController());
+    router.post("/admin/tags/remove", featuredTagsRemoveController());
     router.get("/admin/profile", profileGetController(mp));
     router.post("/admin/profile", profilePostController(mp));
     router.get("/admin/migrate", migrateGetController(mp, this.options));
@@ -167,8 +185,11 @@ export default class ActivityPubEndpoint {
     router.use((req, res, next) => {
       if (!self._fedifyMiddleware) return next();
       if (req.method !== "GET" && req.method !== "HEAD") return next();
-      // Skip Fedify for admin routes — handled by authenticated router
-      if (req.path.startsWith("/admin")) return next();
+      // Only delegate to Fedify for NodeInfo data endpoint (/nodeinfo/2.1).
+      // All other paths in this root-mounted router are handled by the
+      // content negotiation catch-all below. Passing arbitrary paths like
+      // /notes/... to Fedify causes harmless but noisy 404 warnings.
+      if (!req.path.startsWith("/nodeinfo/")) return next();
       return self._fedifyMiddleware(req, res, next);
     });
 
@@ -266,7 +287,7 @@ export default class ActivityPubEndpoint {
 
           const ctx = self._federation.createContext(
             new URL(self._publicationUrl),
-            {},
+            { handle, publicationUrl: self._publicationUrl },
           );
 
           // For replies, resolve the original post author for proper
@@ -327,11 +348,16 @@ export default class ActivityPubEndpoint {
             `[ActivityPub] Sending ${activity.constructor?.name || "activity"} for ${properties.url} to ${followerCount} followers`,
           );
 
-          // Send to followers
+          // Send to followers via shared inboxes with collection sync (FEP-8fcf)
           await ctx.sendActivity(
             { identifier: handle },
             "followers",
             activity,
+            {
+              preferSharedInbox: true,
+              syncCollection: true,
+              orderingKey: properties.url,
+            },
           );
 
           // For replies, also deliver to the original post author's inbox
@@ -342,6 +368,7 @@ export default class ActivityPubEndpoint {
                 { identifier: handle },
                 replyToActor.recipient,
                 activity,
+                { orderingKey: properties.url },
               );
               console.info(
                 `[ActivityPub] Reply delivered to author: ${replyToActor.url}`,
@@ -408,7 +435,7 @@ export default class ActivityPubEndpoint {
       const handle = this.options.actor.handle;
       const ctx = this._federation.createContext(
         new URL(this._publicationUrl),
-        {},
+        { handle, publicationUrl: this._publicationUrl },
       );
 
       // Resolve the remote actor to get their inbox
@@ -423,7 +450,9 @@ export default class ActivityPubEndpoint {
         object: new URL(actorUrl),
       });
 
-      await ctx.sendActivity({ identifier: handle }, remoteActor, follow);
+      await ctx.sendActivity({ identifier: handle }, remoteActor, follow, {
+        orderingKey: actorUrl,
+      });
 
       // Store in ap_following
       const name =
@@ -502,7 +531,7 @@ export default class ActivityPubEndpoint {
       const handle = this.options.actor.handle;
       const ctx = this._federation.createContext(
         new URL(this._publicationUrl),
-        {},
+        { handle, publicationUrl: this._publicationUrl },
       );
 
       const remoteActor = await ctx.lookupObject(actorUrl);
@@ -531,7 +560,9 @@ export default class ActivityPubEndpoint {
         object: follow,
       });
 
-      await ctx.sendActivity({ identifier: handle }, remoteActor, undo);
+      await ctx.sendActivity({ identifier: handle }, remoteActor, undo, {
+        orderingKey: actorUrl,
+      });
       await this._collections.ap_following.deleteOne({ actorUrl });
 
       console.info(`[ActivityPub] Sent Undo(Follow) to ${actorUrl}`);
@@ -586,6 +617,8 @@ export default class ActivityPubEndpoint {
     Indiekit.addCollection("ap_keys");
     Indiekit.addCollection("ap_kv");
     Indiekit.addCollection("ap_profile");
+    Indiekit.addCollection("ap_featured");
+    Indiekit.addCollection("ap_featured_tags");
 
     // Store collection references (posts resolved lazily)
     const indiekitCollections = Indiekit.collections;
@@ -596,6 +629,8 @@ export default class ActivityPubEndpoint {
       ap_keys: indiekitCollections.get("ap_keys"),
       ap_kv: indiekitCollections.get("ap_kv"),
       ap_profile: indiekitCollections.get("ap_profile"),
+      ap_featured: indiekitCollections.get("ap_featured"),
+      ap_featured_tags: indiekitCollections.get("ap_featured_tags"),
       get posts() {
         return indiekitCollections.get("posts");
       },
@@ -652,6 +687,9 @@ export default class ActivityPubEndpoint {
       handle: this.options.actor.handle,
       storeRawActivities: this.options.storeRawActivities,
       redisUrl: this.options.redisUrl,
+      publicationUrl: this._publicationUrl,
+      parallelWorkers: this.options.parallelWorkers,
+      actorType: this.options.actorType,
     });
 
     this._federation = federation;
