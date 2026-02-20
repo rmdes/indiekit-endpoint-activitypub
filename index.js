@@ -41,6 +41,7 @@ const defaults = {
   alsoKnownAs: "",
   activityRetentionDays: 90,
   storeRawActivities: false,
+  redisUrl: "",
 };
 
 export default class ActivityPubEndpoint {
@@ -617,6 +618,28 @@ export default class ActivityPubEndpoint {
       );
     }
 
+    // Performance indexes for inbox handlers and batch refollow
+    this._collections.ap_followers.createIndex(
+      { actorUrl: 1 },
+      { unique: true, background: true },
+    );
+    this._collections.ap_following.createIndex(
+      { actorUrl: 1 },
+      { unique: true, background: true },
+    );
+    this._collections.ap_following.createIndex(
+      { source: 1 },
+      { background: true },
+    );
+    this._collections.ap_activities.createIndex(
+      { objectUrl: 1 },
+      { background: true },
+    );
+    this._collections.ap_activities.createIndex(
+      { type: 1, actorUrl: 1, objectUrl: 1 },
+      { background: true },
+    );
+
     // Seed actor profile from config on first run
     this._seedProfile().catch((error) => {
       console.warn("[ActivityPub] Profile seed failed:", error.message);
@@ -628,6 +651,7 @@ export default class ActivityPubEndpoint {
       mountPath: this.options.mountPath,
       handle: this.options.actor.handle,
       storeRawActivities: this.options.storeRawActivities,
+      redisUrl: this.options.redisUrl,
     });
 
     this._federation = federation;
