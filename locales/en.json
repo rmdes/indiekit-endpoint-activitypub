@@ -16,6 +16,8 @@
     "sourceImport": "Mastodon import",
     "sourceManual": "Manual",
     "sourceFederation": "Federation",
+    "sourceRefollowPending": "Re-follow pending",
+    "sourceRefollowFailed": "Re-follow failed",
     "direction": "Direction",
     "directionInbound": "Received",
     "directionOutbound": "Sent",
@@ -64,6 +66,22 @@
       "failedList": "Could not resolve: %s",
       "failedListSummary": "Failed handles",
       "aliasSuccess": "Alias saved — your actor document now includes this account as alsoKnownAs."
+    },
+    "refollow": {
+      "title": "Batch re-follow",
+      "progress": "Re-follow progress",
+      "remaining": "Remaining",
+      "awaitingAccept": "Awaiting accept",
+      "accepted": "Accepted",
+      "failed": "Failed",
+      "pause": "Pause",
+      "resume": "Resume",
+      "status": {
+        "idle": "Idle",
+        "running": "Running",
+        "paused": "Paused",
+        "completed": "Completed"
+      }
     }
   }
 }

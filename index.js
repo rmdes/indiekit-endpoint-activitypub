@@ -21,6 +21,12 @@ import {
   profileGetController,
   profilePostController,
 } from "./lib/controllers/profile.js";
+import {
+  refollowPauseController,
+  refollowResumeController,
+  refollowStatusController,
+} from "./lib/controllers/refollow.js";
+import { startBatchRefollow } from "./lib/batch-refollow.js";
 import { logActivity } from "./lib/activity-log.js";
 
 const defaults = {
@@ -137,6 +143,9 @@ export default class ActivityPubEndpoint {
       "/admin/migrate/import",
       migrateImportController(mp, this.options),
     );
+    router.post("/admin/refollow/pause", refollowPauseController(mp, this));
+    router.post("/admin/refollow/resume", refollowResumeController(mp, this));
+    router.get("/admin/refollow/status", refollowStatusController(mp));
 
     return router;
   }
@@ -575,6 +584,19 @@ export default class ActivityPubEndpoint {
 
     // Register syndicator (appears in post editing UI)
     Indiekit.addSyndicator(this.syndicator);
+
+    // Start batch re-follow processor after federation settles
+    const refollowOptions = {
+      federation: this._federation,
+      collections: this._collections,
+      handle: this.options.actor.handle,
+      publicationUrl: this._publicationUrl,
+    };
+    setTimeout(() => {
+      startBatchRefollow(refollowOptions).catch((error) => {
+        console.error("[ActivityPub] Batch refollow start failed:", error.message);
+      });
+    }, 10_000);
   }
 
   /**

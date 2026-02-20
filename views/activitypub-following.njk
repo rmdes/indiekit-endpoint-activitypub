@@ -16,7 +16,12 @@
         url: account.actorUrl,
         description: { text: "@" + account.handle if account.handle },
         published: account.followedAt,
-        badges: [{ text: __("activitypub.sourceImport") if account.source === "import" else __("activitypub.sourceFederation") }]
+        badges: [{
+          text: __("activitypub.sourceImport") if account.source === "import"
+            else __("activitypub.sourceRefollowPending") if account.source === "refollow:sent"
+            else __("activitypub.sourceRefollowFailed") if account.source === "refollow:failed"
+            else __("activitypub.sourceFederation")
+        }]
       }) }}
     {% endfor %}
 

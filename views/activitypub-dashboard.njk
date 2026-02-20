@@ -32,6 +32,102 @@
     }
   ]}) }}
 
+  {% if refollowStatus and refollowStatus.status !== "idle" %}
+  <section x-data="refollowProgress('{{ mountPath }}')" class="s-refollow" style="margin-block-end: var(--space-l);">
+    {{ heading({ text: __("activitypub.refollow.title"), level: 2 }) }}
+
+    {# Progress bar #}
+    <div style="background: var(--color-offset); border-radius: 4px; height: 1.5rem; margin-block-end: var(--space-m); overflow: hidden;">
+      <div
+        x-bind:style="'width:' + progress + '%; background: var(--color-accent); height: 100%; transition: width 0.5s ease;'"
+        style="width: {{ refollowStatus.progressPercent }}%; background: var(--color-accent); height: 100%; transition: width 0.5s ease;">
+      </div>
+    </div>
+
+    {# Stats grid #}
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr)); gap: var(--space-s); margin-block-end: var(--space-m);">
+      <div style="padding: var(--space-s); background: var(--color-offset); border-radius: 4px; text-align: center;">
+        <div style="font-size: var(--font-size-xl);" x-text="remaining">{{ refollowStatus.remaining }}</div>
+        <div style="font-size: var(--font-size-s); color: var(--color-text-offset);">{{ __("activitypub.refollow.remaining") }}</div>
+      </div>
+      <div style="padding: var(--space-s); background: var(--color-offset); border-radius: 4px; text-align: center;">
+        <div style="font-size: var(--font-size-xl);" x-text="sent">{{ refollowStatus.sent }}</div>
+        <div style="font-size: var(--font-size-s); color: var(--color-text-offset);">{{ __("activitypub.refollow.awaitingAccept") }}</div>
+      </div>
+      <div style="padding: var(--space-s); background: var(--color-offset); border-radius: 4px; text-align: center;">
+        <div style="font-size: var(--font-size-xl);" x-text="federated">{{ refollowStatus.federated }}</div>
+        <div style="font-size: var(--font-size-s); color: var(--color-text-offset);">{{ __("activitypub.refollow.accepted") }}</div>
+      </div>
+      <div style="padding: var(--space-s); background: var(--color-offset); border-radius: 4px; text-align: center;">
+        <div style="font-size: var(--font-size-xl);" x-text="failed">{{ refollowStatus.failed }}</div>
+        <div style="font-size: var(--font-size-s); color: var(--color-text-offset);">{{ __("activitypub.refollow.failed") }}</div>
+      </div>
+    </div>
+
+    {# Status + controls #}
+    <div style="display: flex; align-items: center; gap: var(--space-s);">
+      {{ badge({ text: __("activitypub.refollow.status." + refollowStatus.status) }) }}
+      {% if refollowStatus.status === "running" %}
+        <form method="post" action="{{ mountPath }}/admin/refollow/pause" x-on:submit.prevent="pause">
+          <button type="submit" class="button" style="font-size: var(--font-size-s);">{{ __("activitypub.refollow.pause") }}</button>
+        </form>
+      {% elif refollowStatus.status === "paused" %}
+        <form method="post" action="{{ mountPath }}/admin/refollow/resume" x-on:submit.prevent="resume">
+          <button type="submit" class="button" style="font-size: var(--font-size-s);">{{ __("activitypub.refollow.resume") }}</button>
+        </form>
+      {% endif %}
+    </div>
+  </section>
+
+  <script>
+    function refollowProgress(mountPath) {
+      return {
+        progress: {{ refollowStatus.progressPercent }},
+        remaining: {{ refollowStatus.remaining }},
+        sent: {{ refollowStatus.sent }},
+        federated: {{ refollowStatus.federated }},
+        failed: {{ refollowStatus.failed }},
+        status: '{{ refollowStatus.status }}',
+        interval: null,
+        init() {
+          if (this.status === 'running' || this.status === 'paused') {
+            this.interval = setInterval(() => this.poll(), 10000);
+          }
+        },
+        destroy() {
+          if (this.interval) clearInterval(this.interval);
+        },
+        async poll() {
+          try {
+            const res = await fetch(mountPath + '/admin/refollow/status');
+            const data = await res.json();
+            this.progress = data.progressPercent;
+            this.remaining = data.remaining;
+            this.sent = data.sent;
+            this.federated = data.federated;
+            this.failed = data.failed;
+            this.status = data.status;
+            if (data.status === 'completed' || data.status === 'idle') {
+              clearInterval(this.interval);
+            }
+          } catch {}
+        },
+        async pause() {
+          await fetch(mountPath + '/admin/refollow/pause', { method: 'POST' });
+          this.status = 'paused';
+        },
+        async resume() {
+          await fetch(mountPath + '/admin/refollow/resume', { method: 'POST' });
+          this.status = 'running';
+          if (!this.interval) {
+            this.interval = setInterval(() => this.poll(), 10000);
+          }
+        }
+      };
+    }
+  </script>
+  {% endif %}
+
   {{ heading({ text: __("activitypub.recentActivity"), level: 2 }) }}
 
   {% if recentActivities.length > 0 %}
