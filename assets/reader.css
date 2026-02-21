@@ -123,6 +123,16 @@
   width: 40px;
 }
 
+.ap-card__avatar--default {
+  align-items: center;
+  background: var(--color-offset);
+  color: var(--color-text-muted);
+  display: inline-flex;
+  font-size: 1.1em;
+  font-weight: 600;
+  justify-content: center;
+}
+
 .ap-card__author-info {
   display: flex;
   flex-direction: column;

@@ -1,9 +1,12 @@
 {% extends "document.njk" %}
 
-{% block head %}
-  {# Alpine.js for client-side reactivity #}
-  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14/dist/cdn.min.js"></script>
+{% block content %}
+  {# Alpine.js for client-side reactivity (CW toggles, interaction buttons) #}
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 
-  {# Reader stylesheet #}
+  {# Reader stylesheet — loaded in body is fine for modern browsers #}
   <link rel="stylesheet" href="/assets/@rmdes-indiekit-endpoint-activitypub/reader.css">
+
+  {% block readercontent %}
+  {% endblock %}
 {% endblock %}

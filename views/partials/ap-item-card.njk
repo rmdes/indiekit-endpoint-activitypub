@@ -4,7 +4,7 @@
   {# Boost header if this is a boosted post #}
   {% if item.type == "boost" and item.boostedBy %}
     <div class="ap-card__boost">
-      🔁 <a href="{{ item.boostedBy.url }}">{{ item.boostedBy.name }}</a> {{ __("activitypub.reader.boosted") }}
+      🔁 {% if item.boostedBy.url %}<a href="{{ mountPath }}/admin/reader/profile?url={{ item.boostedBy.url | urlencode }}">{{ item.boostedBy.name or "Someone" }}</a>{% else %}{{ item.boostedBy.name or "Someone" }}{% endif %} {{ __("activitypub.reader.boosted") }}
     </div>
   {% endif %}
 
@@ -17,16 +17,28 @@
 
   {# Author header #}
   <header class="ap-card__author">
-    <img src="{{ item.author.photo }}" alt="{{ item.author.name }}" class="ap-card__avatar">
+    {% if item.author.photo %}
+      <img src="{{ item.author.photo }}" alt="{{ item.author.name }}" class="ap-card__avatar" loading="lazy">
+    {% else %}
+      <span class="ap-card__avatar ap-card__avatar--default" aria-hidden="true">{{ item.author.name[0] | upper if item.author.name else "?" }}</span>
+    {% endif %}
     <div class="ap-card__author-info">
       <div class="ap-card__author-name">
-        <a href="{{ item.author.url }}">{{ item.author.name }}</a>
+        {% if item.author.url %}
+          <a href="{{ mountPath }}/admin/reader/profile?url={{ item.author.url | urlencode }}">{{ item.author.name or "Unknown" }}</a>
+        {% else %}
+          <span>{{ item.author.name or "Unknown" }}</span>
+        {% endif %}
       </div>
-      <div class="ap-card__author-handle">{{ item.author.handle }}</div>
+      {% if item.author.handle %}
+        <div class="ap-card__author-handle">{{ item.author.handle }}</div>
+      {% endif %}
     </div>
-    <time datetime="{{ item.published }}" class="ap-card__timestamp">
-      {{ item.published | date("PPp") }}
-    </time>
+    {% if item.published %}
+      <time datetime="{{ item.published }}" class="ap-card__timestamp">
+        {{ item.published | date("PPp") }}
+      </time>
+    {% endif %}
   </header>
 
   {# Post title (articles only) #}

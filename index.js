@@ -95,11 +95,28 @@ export default class ActivityPubEndpoint {
   }
 
   get navigationItems() {
-    return {
-      href: `${this.options.mountPath}/admin/reader`,
-      text: "activitypub.reader.title",
-      requiresDatabase: true,
-    };
+    return [
+      {
+        href: this.options.mountPath,
+        text: "activitypub.title",
+        requiresDatabase: true,
+      },
+      {
+        href: `${this.options.mountPath}/admin/reader`,
+        text: "activitypub.reader.title",
+        requiresDatabase: true,
+      },
+      {
+        href: `${this.options.mountPath}/admin/reader/notifications`,
+        text: "activitypub.notifications.title",
+        requiresDatabase: true,
+      },
+      {
+        href: `${this.options.mountPath}/admin/reader/moderation`,
+        text: "activitypub.moderation.title",
+        requiresDatabase: true,
+      },
+    ];
   }
 
   /**
