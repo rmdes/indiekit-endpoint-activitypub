@@ -4,11 +4,7 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block readercontent %}
-  {{ heading({
-    text: title,
-    level: 1,
-    parent: { text: __("activitypub.reader.title"), href: mountPath + "/admin/reader" }
-  }) }}
+  {{ heading({ text: title, level: 1 }) }}
 
   <div class="ap-profile"
     x-data="{

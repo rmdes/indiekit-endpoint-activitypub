@@ -3,11 +3,7 @@
 {% from "heading/macro.njk" import heading with context %}
 
 {% block readercontent %}
-  {{ heading({
-    text: title,
-    level: 1,
-    parent: { text: __("activitypub.reader.title"), href: mountPath + "/admin/reader" }
-  }) }}
+  {{ heading({ text: title, level: 1 }) }}
 
   <div class="ap-post-detail" data-mount-path="{{ mountPath }}">
     {# Back button #}

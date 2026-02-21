@@ -6,7 +6,7 @@
 {% from "pagination/macro.njk" import pagination with context %}
 
 {% block content %}
-  {{ heading({ text: followerCount + " " + __("activitypub.followers"), level: 1, parent: { text: __("activitypub.title"), href: mountPath } }) }}
+  {{ heading({ text: followerCount + " " + __("activitypub.followers"), level: 1 }) }}
 
   {% if followers.length > 0 %}
     {% for follower in followers %}

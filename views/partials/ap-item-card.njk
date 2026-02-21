@@ -24,8 +24,9 @@
   {# Author header #}
   <header class="ap-card__author">
     {% if item.author.photo %}
-      <img src="{{ item.author.photo }}" alt="{{ item.author.name }}" class="ap-card__avatar"
-        onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'ap-card__avatar ap-card__avatar--default',textContent:'{{ item.author.name[0] | upper if item.author.name else "?" }}'}))">
+      <img src="{{ item.author.photo }}" alt="{{ item.author.name }}" class="ap-card__avatar" loading="lazy" crossorigin="anonymous"
+        onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+      <span class="ap-card__avatar ap-card__avatar--default" style="display:none" aria-hidden="true">{{ item.author.name[0] | upper if item.author.name else "?" }}</span>
     {% else %}
       <span class="ap-card__avatar ap-card__avatar--default" aria-hidden="true">{{ item.author.name[0] | upper if item.author.name else "?" }}</span>
     {% endif %}

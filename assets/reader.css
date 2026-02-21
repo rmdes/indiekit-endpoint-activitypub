@@ -793,9 +793,34 @@
   box-shadow: 0 0 8px 0 hsl(var(--tint-yellow) 50% / 0.3);
 }
 
-.ap-notification__icon {
+.ap-notification__avatar-wrap {
   flex-shrink: 0;
-  font-size: 1.5em;
+  position: relative;
+}
+
+.ap-notification__avatar {
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: 50%;
+  height: 40px;
+  object-fit: cover;
+  width: 40px;
+}
+
+.ap-notification__avatar--default {
+  align-items: center;
+  background: var(--color-offset-variant);
+  color: var(--color-on-offset);
+  display: inline-flex;
+  font-size: 1.1em;
+  font-weight: 600;
+  justify-content: center;
+}
+
+.ap-notification__type-badge {
+  bottom: -2px;
+  font-size: 0.75em;
+  position: absolute;
+  right: -4px;
 }
 
 .ap-notification__body {

@@ -4,17 +4,10 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block readercontent %}
-  {{ heading({
-    text: __("activitypub.reader.title"),
-    level: 1,
-    parent: { text: __("activitypub.title"), href: mountPath }
-  }) }}
+  {{ heading({ text: __("activitypub.reader.title"), level: 1 }) }}
 
   {# Tab navigation #}
   <nav class="ap-tabs" role="tablist">
-    <a href="?tab=all" class="ap-tab{% if tab == 'all' %} ap-tab--active{% endif %}" role="tab">
-      {{ __("activitypub.reader.tabs.all") }}
-    </a>
     <a href="?tab=notes" class="ap-tab{% if tab == 'notes' %} ap-tab--active{% endif %}" role="tab">
       {{ __("activitypub.reader.tabs.notes") }}
     </a>
@@ -29,6 +22,9 @@
     </a>
     <a href="?tab=media" class="ap-tab{% if tab == 'media' %} ap-tab--active{% endif %}" role="tab">
       {{ __("activitypub.reader.tabs.media") }}
+    </a>
+    <a href="?tab=all" class="ap-tab{% if tab == 'all' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.reader.tabs.all") }}
     </a>
   </nav>
 

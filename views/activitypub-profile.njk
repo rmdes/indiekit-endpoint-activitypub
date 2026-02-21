@@ -10,7 +10,7 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block content %}
-  {{ heading({ text: title, level: 1, parent: { text: __("activitypub.title"), href: mountPath } }) }}
+  {{ heading({ text: title, level: 1 }) }}
 
   {% if result %}
     {{ notificationBanner({ type: result.type, text: result.text }) }}

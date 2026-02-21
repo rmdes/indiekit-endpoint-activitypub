@@ -8,19 +8,18 @@
     <button type="submit" class="ap-notification__dismiss-btn" title="{{ __('activitypub.notifications.dismiss') }}">&times;</button>
   </form>
 
-  {# Type icon #}
-  <div class="ap-notification__icon">
-    {% if item.type == "like" %}
-      ❤
-    {% elif item.type == "boost" %}
-      🔁
-    {% elif item.type == "follow" %}
-      👤
-    {% elif item.type == "reply" %}
-      💬
-    {% elif item.type == "mention" %}
-      @
+  {# Actor avatar with type badge #}
+  <div class="ap-notification__avatar-wrap">
+    {% if item.actorPhoto %}
+      <img src="{{ item.actorPhoto }}" alt="{{ item.actorName }}" class="ap-notification__avatar" loading="lazy" crossorigin="anonymous"
+        onerror="this.style.display='none';this.nextElementSibling.style.display=''">
+      <span class="ap-notification__avatar ap-notification__avatar--default" style="display:none" aria-hidden="true">{{ item.actorName[0] | upper if item.actorName else "?" }}</span>
+    {% else %}
+      <span class="ap-notification__avatar ap-notification__avatar--default" aria-hidden="true">{{ item.actorName[0] | upper if item.actorName else "?" }}</span>
     {% endif %}
+    <span class="ap-notification__type-badge">
+      {% if item.type == "like" %}❤{% elif item.type == "boost" %}🔁{% elif item.type == "follow" %}👤{% elif item.type == "reply" %}💬{% elif item.type == "mention" %}@{% endif %}
+    </span>
   </div>
 
   {# Notification body #}
