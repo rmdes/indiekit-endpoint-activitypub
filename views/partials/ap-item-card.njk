@@ -1,5 +1,11 @@
 {# Timeline item card partial - reusable across timeline and profile views #}
 
+{# Skip empty cards (e.g. Lemmy/PieFed activity IDs with no actual content) #}
+{% set hasCardContent = item.content and (item.content.html or item.content.text) %}
+{% set hasCardTitle = item.name %}
+{% set hasCardMedia = (item.photo and item.photo.length > 0) or (item.video and item.video.length > 0) or (item.audio and item.audio.length > 0) %}
+{% if hasCardContent or hasCardTitle or hasCardMedia %}
+
 <article class="ap-card{% if item.type %} ap-card--{{ item.type }}{% endif %}{% if item.inReplyTo %} ap-card--reply{% endif %}">
   {# Boost header if this is a boosted post #}
   {% if item.type == "boost" and item.boostedBy %}
@@ -167,3 +173,5 @@
     <div x-show="error" x-text="error" class="ap-card__action-error" x-transition></div>
   </footer>
 </article>
+
+{% endif %}{# end hasCardContent/hasCardTitle/hasCardMedia guard #}

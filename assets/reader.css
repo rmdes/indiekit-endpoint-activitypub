@@ -296,6 +296,40 @@
   max-width: 100%;
 }
 
+/* @mentions — styled as subtle pills to distinguish from prose */
+.ap-card__content .h-card,
+.ap-card__content a.u-url.mention {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  text-decoration: none;
+}
+
+.ap-card__content a.u-url.mention:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+/* Hashtag mentions — subtle tag styling */
+.ap-card__content a.mention.hashtag {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  text-decoration: none;
+}
+
+.ap-card__content a.mention.hashtag:hover {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+
+/* Mastodon's invisible/ellipsis spans for long URLs */
+.ap-card__content .invisible {
+  display: none;
+}
+
+.ap-card__content .ellipsis::after {
+  content: "…";
+}
+
 /* ==========================================================================
    Content Warning
    ========================================================================== */
