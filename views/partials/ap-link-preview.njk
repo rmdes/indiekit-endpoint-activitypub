@@ -1,0 +1,34 @@
+{# Link preview cards for external links (OpenGraph) #}
+{% if item.linkPreviews and item.linkPreviews.length > 0 %}
+  <div class="ap-link-previews">
+    {% for preview in item.linkPreviews %}
+      <a href="{{ preview.url }}" 
+         rel="noopener" 
+         target="_blank" 
+         class="ap-link-preview"
+         aria-label="{{ __('activitypub.reader.linkPreview.label') }}: {{ preview.title }}">
+        
+        <div class="ap-link-preview__text">
+          <p class="ap-link-preview__title">{{ preview.title }}</p>
+          
+          {% if preview.description %}
+            <p class="ap-link-preview__desc">{{ preview.description }}</p>
+          {% endif %}
+          
+          <p class="ap-link-preview__domain">
+            {% if preview.favicon %}
+              <img src="{{ preview.favicon }}" alt="" class="ap-link-preview__favicon" loading="lazy" />
+            {% endif %}
+            {{ preview.domain }}
+          </p>
+        </div>
+        
+        {% if preview.image %}
+          <div class="ap-link-preview__image">
+            <img src="{{ preview.image }}" alt="" loading="lazy" decoding="async" />
+          </div>
+        {% endif %}
+      </a>
+    {% endfor %}
+  </div>
+{% endif %}

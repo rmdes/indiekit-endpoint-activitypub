@@ -17,6 +17,7 @@ import {
   remoteProfileController,
   followController,
   unfollowController,
+  postDetailController,
 } from "./lib/controllers/reader.js";
 import {
   likeController,
@@ -195,6 +196,7 @@ export default class ActivityPubEndpoint {
     router.post("/admin/reader/boost", boostController(mp, this));
     router.post("/admin/reader/unboost", unboostController(mp, this));
     router.get("/admin/reader/profile", remoteProfileController(mp, this));
+    router.get("/admin/reader/post", postDetailController(mp, this));
     router.post("/admin/reader/follow", followController(mp, this));
     router.post("/admin/reader/unfollow", unfollowController(mp, this));
     router.get("/admin/reader/moderation", moderationController(mp));

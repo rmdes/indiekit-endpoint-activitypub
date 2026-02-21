@@ -34,7 +34,7 @@
 
   {# Timeline items #}
   {% if items.length > 0 %}
-    <div class="ap-timeline">
+    <div class="ap-timeline" data-mount-path="{{ mountPath }}">
       {% for item in items %}
         {% include "partials/ap-item-card.njk" %}
       {% endfor %}

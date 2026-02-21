@@ -1,0 +1,61 @@
+{% extends "layouts/ap-reader.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+
+{% block readercontent %}
+  {{ heading({
+    text: title,
+    level: 1,
+    parent: { text: __("activitypub.reader.title"), href: mountPath + "/admin/reader" }
+  }) }}
+
+  <div class="ap-post-detail" data-mount-path="{{ mountPath }}">
+    {# Back button #}
+    <div class="ap-post-detail__back">
+      <a href="{{ mountPath }}/admin/reader" class="ap-post-detail__back-link">
+        ← {{ __("activitypub.reader.post.back") }}
+      </a>
+    </div>
+
+    {% if notFound %}
+      {# Post not found — show message with external link #}
+      <div class="ap-post-detail__not-found">
+        <p>{{ __("activitypub.reader.post.notFound") }}</p>
+        {% if objectUrl %}
+          <p><a href="{{ objectUrl }}" target="_blank" rel="noopener noreferrer">{{ __("activitypub.reader.post.openExternal") }} →</a></p>
+        {% endif %}
+      </div>
+    {% else %}
+      {# Parent posts (thread context above main post) #}
+      {% if parentPosts and parentPosts.length > 0 %}
+        <div class="ap-post-detail__parents">
+          <h2 class="ap-post-detail__section-title">{{ __("activitypub.reader.post.parentPosts") }}</h2>
+          {% for parentItem in parentPosts %}
+            {% set item = parentItem %}
+            <div class="ap-post-detail__parent-item">
+              {% include "partials/ap-item-card.njk" %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+
+      {# Main post #}
+      <div class="ap-post-detail__main">
+        {% include "partials/ap-item-card.njk" %}
+      </div>
+
+      {# Replies (below main post) #}
+      {% if replyPosts and replyPosts.length > 0 %}
+        <div class="ap-post-detail__replies">
+          <h2 class="ap-post-detail__section-title">{{ __("activitypub.reader.post.replies") }}</h2>
+          {% for replyItem in replyPosts %}
+            {% set item = replyItem %}
+            <div class="ap-post-detail__reply-item">
+              {% include "partials/ap-item-card.njk" %}
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endif %}
+  </div>
+{% endblock %}

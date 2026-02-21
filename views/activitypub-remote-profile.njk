@@ -46,7 +46,8 @@
     <div class="ap-profile__info">
       <div class="ap-profile__avatar-wrap">
         {% if icon %}
-          <img src="{{ icon }}" alt="{{ name }}" class="ap-profile__avatar">
+          <img src="{{ icon }}" alt="{{ name }}" class="ap-profile__avatar"
+            onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'ap-profile__avatar ap-profile__avatar--placeholder',textContent:'{{ name[0] }}'}))">
         {% else %}
           <div class="ap-profile__avatar ap-profile__avatar--placeholder">{{ name[0] }}</div>
         {% endif %}

@@ -6,6 +6,10 @@
 
   {# Reader stylesheet — loaded in body is fine for modern browsers #}
   <link rel="stylesheet" href="/assets/@rmdes-indiekit-endpoint-activitypub/reader.css">
+  <link rel="stylesheet" href="/assets/@rmdes-indiekit-endpoint-activitypub/reader-links.css">
+
+  {# AP link interception for internal navigation #}
+  <script defer src="/assets/@rmdes-indiekit-endpoint-activitypub/reader-links.js"></script>
 
   {% block readercontent %}
   {% endblock %}

@@ -176,6 +176,19 @@
         "boosted": "Boosted",
         "likeError": "Could not like this post",
         "boostError": "Could not boost this post"
+      },
+      "post": {
+        "title": "Post Detail",
+        "notFound": "Post not found or no longer available.",
+        "openExternal": "Open on original instance",
+        "parentPosts": "Thread",
+        "replies": "Replies",
+        "back": "Back to timeline",
+        "loadingThread": "Loading thread...",
+        "threadError": "Could not load full thread"
+      },
+      "linkPreview": {
+        "label": "Link preview"
       }
     }
   }
