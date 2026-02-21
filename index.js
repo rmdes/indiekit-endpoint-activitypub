@@ -189,13 +189,13 @@ export default class ActivityPubEndpoint {
     router.get("/admin/following", followingController(mp));
     router.get("/admin/activities", activitiesController(mp));
     router.get("/admin/featured", featuredGetController(mp));
-    router.post("/admin/featured/pin", featuredPinController(mp));
-    router.post("/admin/featured/unpin", featuredUnpinController(mp));
+    router.post("/admin/featured/pin", featuredPinController(mp, this));
+    router.post("/admin/featured/unpin", featuredUnpinController(mp, this));
     router.get("/admin/tags", featuredTagsGetController(mp));
-    router.post("/admin/tags/add", featuredTagsAddController(mp));
-    router.post("/admin/tags/remove", featuredTagsRemoveController(mp));
+    router.post("/admin/tags/add", featuredTagsAddController(mp, this));
+    router.post("/admin/tags/remove", featuredTagsRemoveController(mp, this));
     router.get("/admin/profile", profileGetController(mp));
-    router.post("/admin/profile", profilePostController(mp));
+    router.post("/admin/profile", profilePostController(mp, this));
     router.get("/admin/migrate", migrateGetController(mp, this.options));
     router.post("/admin/migrate", migratePostController(mp, this.options));
     router.post(
@@ -630,6 +630,59 @@ export default class ActivityPubEndpoint {
       // Remove locally even if remote delivery fails
       await this._collections.ap_following.deleteOne({ actorUrl }).catch(() => {});
       return { ok: false, error: error.message };
+    }
+  }
+
+  /**
+   * Send an Update(Person) activity to all followers so remote servers
+   * re-fetch the actor object (picking up profile changes, new featured
+   * collections, attachments, etc.).
+   */
+  async broadcastActorUpdate() {
+    if (!this._federation) return;
+
+    try {
+      const { Update } = await import("@fedify/fedify");
+      const handle = this.options.actor.handle;
+      const ctx = this._federation.createContext(
+        new URL(this._publicationUrl),
+        { handle, publicationUrl: this._publicationUrl },
+      );
+
+      // Retrieve the full actor from the dispatcher (same object remote
+      // servers will get when they re-fetch the actor URL)
+      const actor = await ctx.getActor(handle);
+      if (!actor) {
+        console.warn("[ActivityPub] broadcastActorUpdate: could not build actor");
+        return;
+      }
+
+      const update = new Update({
+        actor: ctx.getActorUri(handle),
+        object: actor,
+      });
+
+      await ctx.sendActivity(
+        { identifier: handle },
+        "followers",
+        update,
+        { preferSharedInbox: true },
+      );
+
+      console.info("[ActivityPub] Sent Update(Person) to followers");
+
+      await logActivity(this._collections.ap_activities, {
+        direction: "outbound",
+        type: "Update",
+        actorUrl: this._publicationUrl,
+        objectUrl: this._getActorUrl(),
+        summary: "Sent Update(Person) to followers",
+      }).catch(() => {});
+    } catch (error) {
+      console.error(
+        "[ActivityPub] broadcastActorUpdate failed:",
+        error.message,
+      );
     }
   }
 
