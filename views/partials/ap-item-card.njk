@@ -1,6 +1,6 @@
 {# Timeline item card partial - reusable across timeline and profile views #}
 
-<article class="ap-card">
+<article class="ap-card{% if item.type %} ap-card--{{ item.type }}{% endif %}{% if item.inReplyTo %} ap-card--reply{% endif %}">
   {# Boost header if this is a boosted post #}
   {% if item.type == "boost" and item.boostedBy %}
     <div class="ap-card__boost">
