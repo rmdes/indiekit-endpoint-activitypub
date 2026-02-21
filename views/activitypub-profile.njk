@@ -4,6 +4,7 @@
 {% from "input/macro.njk" import input with context %}
 {% from "textarea/macro.njk" import textarea with context %}
 {% from "checkboxes/macro.njk" import checkboxes with context %}
+{% from "radios/macro.njk" import radios with context %}
 {% from "button/macro.njk" import button with context %}
 {% from "notification-banner/macro.njk" import notificationBanner with context %}
 {% from "prose/macro.njk" import prose with context %}
@@ -57,6 +58,50 @@
       type: "url"
     }) }}
 
+    {{ radios({
+      name: "actorType",
+      fieldset: {
+        legend: __("activitypub.profile.actorTypeLabel")
+      },
+      hint: __("activitypub.profile.actorTypeHint"),
+      items: [{
+        label: "Person",
+        value: "Person"
+      }, {
+        label: "Service",
+        value: "Service"
+      }, {
+        label: "Organization",
+        value: "Organization"
+      }],
+      values: [profile.actorType or "Person"]
+    }) }}
+
+    <fieldset class="fieldset" style="margin-block-end: var(--space-l);">
+      <legend class="label">{{ __("activitypub.profile.linksLabel") }}</legend>
+      <p class="hint">{{ __("activitypub.profile.linksHint") }}</p>
+
+      <div id="profile-links">
+        {% if profile.attachments and profile.attachments.length > 0 %}
+          {% for att in profile.attachments %}
+            <div class="profile-link-row" style="display: grid; grid-template-columns: 1fr 2fr auto; gap: var(--space-s); align-items: end; margin-block-end: var(--space-s);">
+              <div>
+                <label class="label" for="link_name_{{ loop.index }}">{{ __("activitypub.profile.linkNameLabel") }}</label>
+                <input class="input" type="text" id="link_name_{{ loop.index }}" name="link_name[]" value="{{ att.name }}" placeholder="Website">
+              </div>
+              <div>
+                <label class="label" for="link_value_{{ loop.index }}">{{ __("activitypub.profile.linkValueLabel") }}</label>
+                <input class="input" type="url" id="link_value_{{ loop.index }}" name="link_value[]" value="{{ att.value }}" placeholder="https://example.com">
+              </div>
+              <button type="button" class="button button--small" onclick="this.closest('.profile-link-row').remove()" style="margin-block-end: 4px;">{{ __("activitypub.profile.removeLink") }}</button>
+            </div>
+          {% endfor %}
+        {% endif %}
+      </div>
+
+      <button type="button" class="button button--small" id="add-link-btn">{{ __("activitypub.profile.addLink") }}</button>
+    </fieldset>
+
     {{ checkboxes({
       name: "manuallyApprovesFollowers",
       items: [
@@ -83,4 +128,57 @@
 
     {{ button({ text: __("activitypub.profile.save") }) }}
   </form>
+
+  <script>
+    (function() {
+      var linkCount = {{ (profile.attachments.length if profile.attachments) or 0 }};
+      document.getElementById('add-link-btn').addEventListener('click', function() {
+        linkCount++;
+        var container = document.getElementById('profile-links');
+        var row = document.createElement('div');
+        row.className = 'profile-link-row';
+        row.style.cssText = 'display: grid; grid-template-columns: 1fr 2fr auto; gap: var(--space-s); align-items: end; margin-block-end: var(--space-s);';
+
+        var nameDiv = document.createElement('div');
+        var nameLabel = document.createElement('label');
+        nameLabel.className = 'label';
+        nameLabel.setAttribute('for', 'link_name_' + linkCount);
+        nameLabel.textContent = 'Label';
+        var nameInput = document.createElement('input');
+        nameInput.className = 'input';
+        nameInput.type = 'text';
+        nameInput.id = 'link_name_' + linkCount;
+        nameInput.name = 'link_name[]';
+        nameInput.placeholder = 'Website';
+        nameDiv.appendChild(nameLabel);
+        nameDiv.appendChild(nameInput);
+
+        var valueDiv = document.createElement('div');
+        var valueLabel = document.createElement('label');
+        valueLabel.className = 'label';
+        valueLabel.setAttribute('for', 'link_value_' + linkCount);
+        valueLabel.textContent = 'URL';
+        var valueInput = document.createElement('input');
+        valueInput.className = 'input';
+        valueInput.type = 'url';
+        valueInput.id = 'link_value_' + linkCount;
+        valueInput.name = 'link_value[]';
+        valueInput.placeholder = 'https://example.com';
+        valueDiv.appendChild(valueLabel);
+        valueDiv.appendChild(valueInput);
+
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'button button--small';
+        removeBtn.style.cssText = 'margin-block-end: 4px;';
+        removeBtn.textContent = 'Remove';
+        removeBtn.addEventListener('click', function() { row.remove(); });
+
+        row.appendChild(nameDiv);
+        row.appendChild(valueDiv);
+        row.appendChild(removeBtn);
+        container.appendChild(row);
+      });
+    })();
+  </script>
 {% endblock %}
