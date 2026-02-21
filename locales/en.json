@@ -191,6 +191,13 @@
         "loadingThread": "Loading thread...",
         "threadError": "Could not load full thread"
       },
+      "resolve": {
+        "placeholder": "Paste a fediverse URL or @user@domain handle…",
+        "label": "Look up a fediverse post or account",
+        "button": "Look up",
+        "notFoundTitle": "Not found",
+        "notFound": "Could not find this post or account. The URL may be invalid, the server may be unavailable, or the content may have been deleted."
+      },
       "linkPreview": {
         "label": "Link preview"
       }

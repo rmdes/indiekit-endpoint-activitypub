@@ -5,6 +5,54 @@
  */
 
 /* ==========================================================================
+   Fediverse Lookup
+   ========================================================================== */
+
+.ap-lookup {
+  display: flex;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-m);
+}
+
+.ap-lookup__input {
+  flex: 1;
+  padding: var(--space-s) var(--space-m);
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  background: var(--color-offset);
+  color: var(--color-on-background);
+  font-size: var(--font-size-m);
+  font-family: inherit;
+}
+
+.ap-lookup__input::placeholder {
+  color: var(--color-on-offset);
+}
+
+.ap-lookup__input:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+  border-color: var(--color-primary);
+}
+
+.ap-lookup__btn {
+  padding: var(--space-s) var(--space-m);
+  border: var(--border-width-thin) solid var(--color-primary);
+  border-radius: var(--border-radius-small);
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  font-size: var(--font-size-m);
+  font-family: inherit;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.ap-lookup__btn:hover {
+  opacity: 0.9;
+}
+
+/* ==========================================================================
    Tab Navigation
    ========================================================================== */
 

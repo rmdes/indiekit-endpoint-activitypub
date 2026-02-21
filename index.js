@@ -57,6 +57,7 @@ import {
   featuredTagsAddController,
   featuredTagsRemoveController,
 } from "./lib/controllers/featured-tags.js";
+import { resolveController } from "./lib/controllers/resolve.js";
 import {
   refollowPauseController,
   refollowResumeController,
@@ -202,6 +203,7 @@ export default class ActivityPubEndpoint {
     router.post("/admin/reader/unlike", unlikeController(mp, this));
     router.post("/admin/reader/boost", boostController(mp, this));
     router.post("/admin/reader/unboost", unboostController(mp, this));
+    router.get("/admin/reader/resolve", resolveController(mp, this));
     router.get("/admin/reader/profile", remoteProfileController(mp, this));
     router.get("/admin/reader/post", postDetailController(mp, this));
     router.post("/admin/reader/follow", followController(mp, this));

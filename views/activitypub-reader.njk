@@ -4,7 +4,13 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block readercontent %}
-  {{ heading({ text: __("activitypub.reader.title"), level: 1 }) }}
+  {# Fediverse lookup #}
+  <form action="{{ mountPath }}/admin/reader/resolve" method="get" class="ap-lookup">
+    <input type="text" name="q" class="ap-lookup__input"
+      placeholder="{{ __('activitypub.reader.resolve.placeholder') }}"
+      aria-label="{{ __('activitypub.reader.resolve.label') }}">
+    <button type="submit" class="ap-lookup__btn">{{ __("activitypub.reader.resolve.button") }}</button>
+  </form>
 
   {# Tab navigation #}
   <nav class="ap-tabs" role="tablist">
