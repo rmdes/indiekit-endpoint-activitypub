@@ -82,6 +82,7 @@ const defaults = {
   redisUrl: "",
   parallelWorkers: 5,
   actorType: "Person",
+  logLevel: "warning",
   timelineRetention: 1000,
   notificationRetentionDays: 30,
 };
@@ -891,6 +892,7 @@ export default class ActivityPubEndpoint {
       publicationUrl: this._publicationUrl,
       parallelWorkers: this.options.parallelWorkers,
       actorType: this.options.actorType,
+      logLevel: this.options.logLevel,
     });
 
     this._federation = federation;

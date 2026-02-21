@@ -93,6 +93,7 @@ export default {
 | `redisUrl` | string | `""` | Redis connection URL for delivery queue |
 | `parallelWorkers` | number | `5` | Number of parallel delivery workers (requires Redis) |
 | `actorType` | string | `"Person"` | Actor type: `Person`, `Service`, `Organization`, or `Group` |
+| `logLevel` | string | `"warning"` | Fedify log level: `"debug"`, `"info"`, `"warning"`, `"error"`, `"fatal"` |
 | `timelineRetention` | number | `1000` | Maximum timeline items to keep (0 = unlimited) |
 
 ### Redis (Recommended for Production)

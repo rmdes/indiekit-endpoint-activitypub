@@ -262,6 +262,7 @@ On restart, `refollow:pending` entries are reset to `import` to prevent stale cl
   redisUrl: "",                      // Redis for delivery queue (empty = in-process)
   parallelWorkers: 5,               // Parallel delivery workers (with Redis)
   actorType: "Person",              // Person | Service | Organization | Group
+  logLevel: "warning",             // Fedify log level: debug | info | warning | error | fatal
   timelineRetention: 1000,          // Max timeline items (0 = unlimited)
 }
 ```
