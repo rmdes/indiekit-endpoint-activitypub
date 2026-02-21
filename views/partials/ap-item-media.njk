@@ -1,0 +1,37 @@
+{# Media attachments partial — included from ap-item-card.njk #}
+
+{# Photo gallery #}
+{% if item.photo and item.photo.length > 0 %}
+  {% set displayCount = [item.photo.length, 4] | min %}
+  {% set extraCount = item.photo.length - 4 %}
+  <div class="ap-card__gallery ap-card__gallery--{{ displayCount }}">
+    {% for photoUrl in item.photo %}
+      {% if loop.index0 < 4 %}
+        <a href="{{ photoUrl }}" target="_blank" rel="noopener" class="ap-card__gallery-link{% if loop.index0 == 3 and extraCount > 0 %} ap-card__gallery-link--more{% endif %}">
+          <img src="{{ photoUrl }}" alt="" loading="lazy">
+          {% if loop.index0 == 3 and extraCount > 0 %}
+            <span class="ap-card__gallery-more">+{{ extraCount }}</span>
+          {% endif %}
+        </a>
+      {% endif %}
+    {% endfor %}
+  </div>
+{% endif %}
+
+{# Video embed #}
+{% if item.video and item.video.length > 0 %}
+  <div class="ap-card__video">
+    <video controls preload="metadata" src="{{ item.video[0] }}">
+      {{ __("activitypub.reader.videoNotSupported") }}
+    </video>
+  </div>
+{% endif %}
+
+{# Audio player #}
+{% if item.audio and item.audio.length > 0 %}
+  <div class="ap-card__audio">
+    <audio controls preload="metadata" src="{{ item.audio[0] }}">
+      {{ __("activitypub.reader.audioNotSupported") }}
+    </audio>
+  </div>
+{% endif %}

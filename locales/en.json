@@ -49,7 +49,16 @@
       "authorizedFetchLabel": "Require authorized fetch (secure mode)",
       "authorizedFetchHint": "When enabled, only servers with valid HTTP Signatures can fetch your actor and collections. This improves privacy but may reduce compatibility with some clients.",
       "save": "Save profile",
-      "saved": "Profile saved. Changes are now visible to the fediverse."
+      "saved": "Profile saved. Changes are now visible to the fediverse.",
+      "remote": {
+        "follow": "Follow",
+        "unfollow": "Unfollow",
+        "viewOn": "View on",
+        "postsTitle": "Posts",
+        "noPosts": "No posts from this account yet.",
+        "followToSee": "Follow this account to see their posts in your timeline.",
+        "notFound": "Could not find this account. It may have been deleted or the server may be unavailable."
+      }
     },
     "migrate": {
       "title": "Mastodon migration",
@@ -93,6 +102,80 @@
         "running": "Running",
         "paused": "Paused",
         "completed": "Completed"
+      }
+    },
+    "moderation": {
+      "title": "Moderation",
+      "blockedTitle": "Blocked accounts",
+      "mutedActorsTitle": "Muted accounts",
+      "mutedKeywordsTitle": "Muted keywords",
+      "noBlocked": "No blocked accounts.",
+      "noMutedActors": "No muted accounts.",
+      "noMutedKeywords": "No muted keywords.",
+      "unblock": "Unblock",
+      "unmute": "Unmute",
+      "addKeywordTitle": "Add muted keyword",
+      "keywordPlaceholder": "Enter keyword or phrase…",
+      "addKeyword": "Add",
+      "muteActor": "Mute",
+      "blockActor": "Block"
+    },
+    "compose": {
+      "title": "Compose reply",
+      "modeLabel": "Reply mode",
+      "modeMicropub": "Post as blog reply",
+      "modeMicropubHint": "Creates a permanent post on your blog, syndicated to the fediverse",
+      "modeQuick": "Quick reply",
+      "modeQuickHint": "Sends a reply directly to the fediverse (no blog post created)",
+      "placeholder": "Write your reply…",
+      "syndicateLabel": "Syndicate to",
+      "submitMicropub": "Post reply",
+      "submitQuick": "Send reply",
+      "cancel": "Cancel",
+      "errorEmpty": "Reply content cannot be empty"
+    },
+    "notifications": {
+      "title": "Notifications",
+      "empty": "No notifications yet. Interactions from other fediverse users will appear here.",
+      "liked": "liked your post",
+      "boostedPost": "boosted your post",
+      "followedYou": "followed you",
+      "repliedTo": "replied to your post",
+      "mentionedYou": "mentioned you"
+    },
+    "reader": {
+      "title": "Reader",
+      "tabs": {
+        "all": "All",
+        "notes": "Notes",
+        "articles": "Articles",
+        "replies": "Replies",
+        "boosts": "Boosts",
+        "media": "Media"
+      },
+      "pagination": {
+        "newer": "← Newer",
+        "older": "Older →"
+      },
+      "empty": "Your timeline is empty. Follow some accounts to see their posts here.",
+      "boosted": "boosted",
+      "replyingTo": "Replying to",
+      "showContent": "Show content",
+      "hideContent": "Hide content",
+      "sensitiveContent": "Sensitive content",
+      "videoNotSupported": "Your browser does not support the video element.",
+      "audioNotSupported": "Your browser does not support the audio element.",
+      "actions": {
+        "reply": "Reply",
+        "boost": "Boost",
+        "unboost": "Undo boost",
+        "like": "Like",
+        "unlike": "Unlike",
+        "viewOriginal": "View original",
+        "liked": "Liked",
+        "boosted": "Boosted",
+        "likeError": "Could not like this post",
+        "boostError": "Could not boost this post"
       }
     }
   }

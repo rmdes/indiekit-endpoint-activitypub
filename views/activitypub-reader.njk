@@ -1,0 +1,61 @@
+{% extends "layouts/reader.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+{% from "prose/macro.njk" import prose with context %}
+
+{% block content %}
+  {{ heading({
+    text: __("activitypub.reader.title"),
+    level: 1,
+    parent: { text: __("activitypub.title"), href: mountPath }
+  }) }}
+
+  {# Tab navigation #}
+  <nav class="ap-tabs" role="tablist">
+    <a href="?tab=all" class="ap-tab{% if tab == 'all' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.reader.tabs.all") }}
+    </a>
+    <a href="?tab=notes" class="ap-tab{% if tab == 'notes' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.reader.tabs.notes") }}
+    </a>
+    <a href="?tab=articles" class="ap-tab{% if tab == 'articles' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.reader.tabs.articles") }}
+    </a>
+    <a href="?tab=replies" class="ap-tab{% if tab == 'replies' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.reader.tabs.replies") }}
+    </a>
+    <a href="?tab=boosts" class="ap-tab{% if tab == 'boosts' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.reader.tabs.boosts") }}
+    </a>
+    <a href="?tab=media" class="ap-tab{% if tab == 'media' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.reader.tabs.media") }}
+    </a>
+  </nav>
+
+  {# Timeline items #}
+  {% if items.length > 0 %}
+    <div class="ap-timeline">
+      {% for item in items %}
+        {% include "partials/ap-item-card.njk" %}
+      {% endfor %}
+    </div>
+
+    {# Pagination #}
+    {% if before or after %}
+      <nav class="ap-pagination">
+        {% if after %}
+          <a href="?tab={{ tab }}&after={{ after }}" class="ap-pagination__prev">
+            {{ __("activitypub.reader.pagination.newer") }}
+          </a>
+        {% endif %}
+        {% if before %}
+          <a href="?tab={{ tab }}&before={{ before }}" class="ap-pagination__next">
+            {{ __("activitypub.reader.pagination.older") }}
+          </a>
+        {% endif %}
+      </nav>
+    {% endif %}
+  {% else %}
+    {{ prose({ text: __("activitypub.reader.empty") }) }}
+  {% endif %}
+{% endblock %}

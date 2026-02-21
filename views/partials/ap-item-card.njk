@@ -1,0 +1,157 @@
+{# Timeline item card partial - reusable across timeline and profile views #}
+
+<article class="ap-card">
+  {# Boost header if this is a boosted post #}
+  {% if item.type == "boost" and item.boostedBy %}
+    <div class="ap-card__boost">
+      🔁 <a href="{{ item.boostedBy.url }}">{{ item.boostedBy.name }}</a> {{ __("activitypub.reader.boosted") }}
+    </div>
+  {% endif %}
+
+  {# Reply context if this is a reply #}
+  {% if item.inReplyTo %}
+    <div class="ap-card__reply-to">
+      ↩ {{ __("activitypub.reader.replyingTo") }} <a href="{{ item.inReplyTo }}">{{ item.inReplyTo }}</a>
+    </div>
+  {% endif %}
+
+  {# Author header #}
+  <header class="ap-card__author">
+    <img src="{{ item.author.photo }}" alt="{{ item.author.name }}" class="ap-card__avatar">
+    <div class="ap-card__author-info">
+      <div class="ap-card__author-name">
+        <a href="{{ item.author.url }}">{{ item.author.name }}</a>
+      </div>
+      <div class="ap-card__author-handle">{{ item.author.handle }}</div>
+    </div>
+    <time datetime="{{ item.published }}" class="ap-card__timestamp">
+      {{ item.published | date("PPp") }}
+    </time>
+  </header>
+
+  {# Post title (articles only) #}
+  {% if item.name %}
+    <h2 class="ap-card__title">
+      <a href="{{ item.url }}">{{ item.name }}</a>
+    </h2>
+  {% endif %}
+
+  {# Determine if content should be hidden behind CW #}
+  {% set hasCW = item.summary or item.sensitive %}
+  {% set cwLabel = item.summary if item.summary else __("activitypub.reader.sensitiveContent") %}
+
+  {% if hasCW %}
+    <div class="ap-card__cw" x-data="{ shown: false }">
+      <button @click="shown = !shown" class="ap-card__cw-toggle">
+        <span x-show="!shown">⚠️ {{ cwLabel }} — {{ __("activitypub.reader.showContent") }}</span>
+        <span x-show="shown" x-cloak>{{ __("activitypub.reader.hideContent") }}</span>
+      </button>
+      <div x-show="shown" x-cloak>
+        {% if item.content and item.content.html %}
+          <div class="ap-card__content">
+            {{ item.content.html | safe }}
+          </div>
+        {% endif %}
+
+        {# Media hidden behind CW #}
+        {% include "partials/ap-item-media.njk" %}
+      </div>
+    </div>
+  {% else %}
+    {# Regular content (no CW) #}
+    {% if item.content and item.content.html %}
+      <div class="ap-card__content">
+        {{ item.content.html | safe }}
+      </div>
+    {% endif %}
+
+    {# Media visible directly #}
+    {% include "partials/ap-item-media.njk" %}
+  {% endif %}
+
+  {# Tags/categories #}
+  {% if item.category and item.category.length > 0 %}
+    <div class="ap-card__tags">
+      {% for tag in item.category %}
+        <a href="?tag={{ tag }}" class="ap-card__tag">#{{ tag }}</a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
+  {# Interaction buttons — Alpine.js for optimistic updates #}
+  {# Dynamic data moved to data-* attributes to prevent XSS from inline interpolation #}
+  {% set itemUrl = item.url or item.originalUrl %}
+  {% set isLiked = interactionMap[itemUrl].like if interactionMap[itemUrl] else false %}
+  {% set isBoosted = interactionMap[itemUrl].boost if interactionMap[itemUrl] else false %}
+  <footer class="ap-card__actions"
+    data-item-url="{{ itemUrl }}"
+    data-csrf-token="{{ csrfToken }}"
+    data-mount-path="{{ mountPath }}"
+    x-data="{
+      liked: {{ 'true' if isLiked else 'false' }},
+      boosted: {{ 'true' if isBoosted else 'false' }},
+      loading: false,
+      error: '',
+      async interact(action) {
+        if (this.loading) return;
+        this.loading = true;
+        this.error = '';
+        const el = this.$root;
+        const itemUrl = el.dataset.itemUrl;
+        const csrfToken = el.dataset.csrfToken;
+        const basePath = el.dataset.mountPath;
+        const prev = { liked: this.liked, boosted: this.boosted };
+        if (action === 'like') this.liked = true;
+        else if (action === 'unlike') this.liked = false;
+        else if (action === 'boost') this.boosted = true;
+        else if (action === 'unboost') this.boosted = false;
+        try {
+          const res = await fetch(basePath + '/admin/reader/' + action, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': csrfToken
+            },
+            body: JSON.stringify({ url: itemUrl })
+          });
+          const data = await res.json();
+          if (!data.success) {
+            this.liked = prev.liked;
+            this.boosted = prev.boosted;
+            this.error = data.error || 'Failed';
+          }
+        } catch (e) {
+          this.liked = prev.liked;
+          this.boosted = prev.boosted;
+          this.error = e.message;
+        }
+        this.loading = false;
+        if (this.error) setTimeout(() => this.error = '', 3000);
+      }
+    }">
+    <a href="{{ mountPath }}/admin/reader/compose?replyTo={{ itemUrl | urlencode }}"
+       class="ap-card__action ap-card__action--reply"
+       title="{{ __('activitypub.reader.actions.reply') }}">
+      ↩ {{ __("activitypub.reader.actions.reply") }}
+    </a>
+    <button class="ap-card__action ap-card__action--boost"
+      :class="{ 'ap-card__action--active': boosted }"
+      :title="boosted ? '{{ __('activitypub.reader.actions.unboost') }}' : '{{ __('activitypub.reader.actions.boost') }}'"
+      :disabled="loading"
+      @click="interact(boosted ? 'unboost' : 'boost')">
+      🔁 <span x-text="boosted ? '{{ __('activitypub.reader.actions.boosted') }}' : '{{ __('activitypub.reader.actions.boost') }}'"></span>
+    </button>
+    <button class="ap-card__action ap-card__action--like"
+      :class="{ 'ap-card__action--active': liked }"
+      :title="liked ? '{{ __('activitypub.reader.actions.unlike') }}' : '{{ __('activitypub.reader.actions.like') }}'"
+      :disabled="loading"
+      @click="interact(liked ? 'unlike' : 'like')">
+      <span x-text="liked ? '❤️' : '♥'"></span>
+      <span x-text="liked ? '{{ __('activitypub.reader.actions.liked') }}' : '{{ __('activitypub.reader.actions.like') }}'"></span>
+    </button>
+    <a href="{{ itemUrl }}" class="ap-card__action ap-card__action--link" target="_blank" rel="noopener">
+      🔗 {{ __("activitypub.reader.actions.viewOriginal") }}
+    </a>
+    <div x-show="error" x-text="error" class="ap-card__action-error" x-transition></div>
+  </footer>
+</article>

@@ -1,0 +1,117 @@
+{% extends "layouts/reader.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+{% from "prose/macro.njk" import prose with context %}
+
+{% block content %}
+  {{ heading({
+    text: title,
+    level: 1,
+    parent: { text: __("activitypub.reader.title"), href: mountPath + "/admin/reader" }
+  }) }}
+
+  <div class="ap-profile"
+    x-data="{
+      following: {{ 'true' if isFollowing else 'false' }},
+      muted: {{ 'true' if isMuted else 'false' }},
+      blocked: {{ 'true' if isBlocked else 'false' }},
+      loading: false,
+      async action(endpoint, body) {
+        if (this.loading) return;
+        this.loading = true;
+        try {
+          const res = await fetch('{{ mountPath }}/admin/reader/' + endpoint, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-CSRF-Token': '{{ csrfToken }}'
+            },
+            body: JSON.stringify(body)
+          });
+          const data = await res.json();
+          return data.success;
+        } catch { return false; }
+        finally { this.loading = false; }
+      }
+    }">
+
+    {# Header image #}
+    {% if image %}
+      <div class="ap-profile__header">
+        <img src="{{ image }}" alt="" class="ap-profile__header-img">
+      </div>
+    {% endif %}
+
+    {# Profile info #}
+    <div class="ap-profile__info">
+      <div class="ap-profile__avatar-wrap">
+        {% if icon %}
+          <img src="{{ icon }}" alt="{{ name }}" class="ap-profile__avatar">
+        {% else %}
+          <div class="ap-profile__avatar ap-profile__avatar--placeholder">{{ name[0] }}</div>
+        {% endif %}
+      </div>
+
+      <div class="ap-profile__details">
+        <h2 class="ap-profile__name">{{ name }}</h2>
+        {% if actorHandle %}
+          <div class="ap-profile__handle">@{{ actorHandle }}@{{ instanceHost }}</div>
+        {% endif %}
+        {% if summary %}
+          <div class="ap-profile__bio">{{ summary | safe }}</div>
+        {% endif %}
+      </div>
+
+      {# Action buttons #}
+      <div class="ap-profile__actions">
+        <button class="ap-profile__action ap-profile__action--follow"
+          :class="{ 'ap-profile__action--active': following }"
+          :disabled="loading"
+          @click="
+            const ok = await action(following ? 'unfollow' : 'follow', { url: '{{ actorUrl }}' });
+            if (ok) following = !following;
+          ">
+          <span x-text="following ? '{{ __('activitypub.profile.remote.unfollow') }}' : '{{ __('activitypub.profile.remote.follow') }}'"></span>
+        </button>
+
+        <button class="ap-profile__action"
+          :disabled="loading"
+          @click="
+            const ok = await action(muted ? 'unmute' : 'mute', { url: '{{ actorUrl }}' });
+            if (ok) muted = !muted;
+          ">
+          <span x-text="muted ? '{{ __('activitypub.moderation.unmute') }}' : '{{ __('activitypub.moderation.muteActor') }}'"></span>
+        </button>
+
+        <button class="ap-profile__action ap-profile__action--danger"
+          :disabled="loading"
+          @click="
+            const ok = await action(blocked ? 'unblock' : 'block', { url: '{{ actorUrl }}' });
+            if (ok) blocked = !blocked;
+          ">
+          <span x-text="blocked ? '{{ __('activitypub.moderation.unblock') }}' : '{{ __('activitypub.moderation.blockActor') }}'"></span>
+        </button>
+
+        <a href="{{ actorUrl }}" class="ap-profile__action" target="_blank" rel="noopener">
+          {{ __("activitypub.profile.remote.viewOn") }} {{ instanceHost }}
+        </a>
+      </div>
+    </div>
+
+    {# Posts from this actor #}
+    <div class="ap-profile__posts">
+      <h3>{{ __("activitypub.profile.remote.postsTitle") }}</h3>
+      {% if posts.length > 0 %}
+        <div class="ap-timeline">
+          {% for item in posts %}
+            {% include "partials/ap-item-card.njk" %}
+          {% endfor %}
+        </div>
+      {% elif isFollowing %}
+        {{ prose({ text: __("activitypub.profile.remote.noPosts") }) }}
+      {% else %}
+        {{ prose({ text: __("activitypub.profile.remote.followToSee") }) }}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

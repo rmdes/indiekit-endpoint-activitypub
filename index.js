@@ -9,6 +9,28 @@ import {
   jf2ToAS2Activity,
 } from "./lib/jf2-to-as2.js";
 import { dashboardController } from "./lib/controllers/dashboard.js";
+import {
+  readerController,
+  notificationsController,
+  composeController,
+  submitComposeController,
+  remoteProfileController,
+  followController,
+  unfollowController,
+} from "./lib/controllers/reader.js";
+import {
+  likeController,
+  unlikeController,
+  boostController,
+  unboostController,
+} from "./lib/controllers/interactions.js";
+import {
+  muteController,
+  unmuteController,
+  blockController,
+  unblockController,
+  moderationController,
+} from "./lib/controllers/moderation.js";
 import { followersController } from "./lib/controllers/followers.js";
 import { followingController } from "./lib/controllers/following.js";
 import { activitiesController } from "./lib/controllers/activities.js";
@@ -38,6 +60,7 @@ import {
 } from "./lib/controllers/refollow.js";
 import { startBatchRefollow } from "./lib/batch-refollow.js";
 import { logActivity } from "./lib/activity-log.js";
+import { scheduleCleanup } from "./lib/timeline-cleanup.js";
 
 const defaults = {
   mountPath: "/activitypub",
@@ -54,6 +77,7 @@ const defaults = {
   redisUrl: "",
   parallelWorkers: 5,
   actorType: "Person",
+  timelineRetention: 1000,
 };
 
 export default class ActivityPubEndpoint {
@@ -72,8 +96,8 @@ export default class ActivityPubEndpoint {
 
   get navigationItems() {
     return {
-      href: this.options.mountPath,
-      text: "activitypub.title",
+      href: `${this.options.mountPath}/admin/reader`,
+      text: "activitypub.reader.title",
       requiresDatabase: true,
     };
   }
@@ -145,6 +169,22 @@ export default class ActivityPubEndpoint {
     const mp = this.options.mountPath;
 
     router.get("/", dashboardController(mp));
+    router.get("/admin/reader", readerController(mp));
+    router.get("/admin/reader/notifications", notificationsController(mp));
+    router.get("/admin/reader/compose", composeController(mp, this));
+    router.post("/admin/reader/compose", submitComposeController(mp, this));
+    router.post("/admin/reader/like", likeController(mp, this));
+    router.post("/admin/reader/unlike", unlikeController(mp, this));
+    router.post("/admin/reader/boost", boostController(mp, this));
+    router.post("/admin/reader/unboost", unboostController(mp, this));
+    router.get("/admin/reader/profile", remoteProfileController(mp, this));
+    router.post("/admin/reader/follow", followController(mp, this));
+    router.post("/admin/reader/unfollow", unfollowController(mp, this));
+    router.get("/admin/reader/moderation", moderationController(mp));
+    router.post("/admin/reader/mute", muteController(mp, this));
+    router.post("/admin/reader/unmute", unmuteController(mp, this));
+    router.post("/admin/reader/block", blockController(mp, this));
+    router.post("/admin/reader/unblock", unblockController(mp, this));
     router.get("/admin/followers", followersController(mp));
     router.get("/admin/following", followingController(mp));
     router.get("/admin/activities", activitiesController(mp));
@@ -483,7 +523,7 @@ export default class ActivityPubEndpoint {
             inbox,
             sharedInbox,
             followedAt: new Date().toISOString(),
-            source: "microsub-reader",
+            source: "reader",
           },
         },
         { upsert: true },
@@ -619,6 +659,12 @@ export default class ActivityPubEndpoint {
     Indiekit.addCollection("ap_profile");
     Indiekit.addCollection("ap_featured");
     Indiekit.addCollection("ap_featured_tags");
+    // Reader collections
+    Indiekit.addCollection("ap_timeline");
+    Indiekit.addCollection("ap_notifications");
+    Indiekit.addCollection("ap_muted");
+    Indiekit.addCollection("ap_blocked");
+    Indiekit.addCollection("ap_interactions");
 
     // Store collection references (posts resolved lazily)
     const indiekitCollections = Indiekit.collections;
@@ -631,15 +677,14 @@ export default class ActivityPubEndpoint {
       ap_profile: indiekitCollections.get("ap_profile"),
       ap_featured: indiekitCollections.get("ap_featured"),
       ap_featured_tags: indiekitCollections.get("ap_featured_tags"),
+      // Reader collections
+      ap_timeline: indiekitCollections.get("ap_timeline"),
+      ap_notifications: indiekitCollections.get("ap_notifications"),
+      ap_muted: indiekitCollections.get("ap_muted"),
+      ap_blocked: indiekitCollections.get("ap_blocked"),
+      ap_interactions: indiekitCollections.get("ap_interactions"),
       get posts() {
         return indiekitCollections.get("posts");
-      },
-      // Lazy access to Microsub collections (may not exist if plugin not loaded)
-      get microsub_items() {
-        return indiekitCollections.get("microsub_items");
-      },
-      get microsub_channels() {
-        return indiekitCollections.get("microsub_channels");
       },
       _publicationUrl: this._publicationUrl,
     };
@@ -672,6 +717,60 @@ export default class ActivityPubEndpoint {
     );
     this._collections.ap_activities.createIndex(
       { type: 1, actorUrl: 1, objectUrl: 1 },
+      { background: true },
+    );
+
+    // Reader indexes (timeline, notifications, moderation, interactions)
+    this._collections.ap_timeline.createIndex(
+      { uid: 1 },
+      { unique: true, background: true },
+    );
+    this._collections.ap_timeline.createIndex(
+      { published: -1 },
+      { background: true },
+    );
+    this._collections.ap_timeline.createIndex(
+      { "author.url": 1 },
+      { background: true },
+    );
+    this._collections.ap_timeline.createIndex(
+      { type: 1, published: -1 },
+      { background: true },
+    );
+
+    this._collections.ap_notifications.createIndex(
+      { uid: 1 },
+      { unique: true, background: true },
+    );
+    this._collections.ap_notifications.createIndex(
+      { published: -1 },
+      { background: true },
+    );
+    this._collections.ap_notifications.createIndex(
+      { read: 1 },
+      { background: true },
+    );
+
+    this._collections.ap_muted.createIndex(
+      { url: 1 },
+      { unique: true, sparse: true, background: true },
+    );
+    this._collections.ap_muted.createIndex(
+      { keyword: 1 },
+      { unique: true, sparse: true, background: true },
+    );
+
+    this._collections.ap_blocked.createIndex(
+      { url: 1 },
+      { unique: true, background: true },
+    );
+
+    this._collections.ap_interactions.createIndex(
+      { objectUrl: 1, type: 1 },
+      { unique: true, background: true },
+    );
+    this._collections.ap_interactions.createIndex(
+      { type: 1 },
       { background: true },
     );
 
@@ -720,6 +819,11 @@ export default class ActivityPubEndpoint {
         console.error("[ActivityPub] Batch refollow start failed:", error.message);
       });
     }, 10_000);
+
+    // Schedule timeline retention cleanup (runs on startup + every 24h)
+    if (this.options.timelineRetention > 0) {
+      scheduleCleanup(this._collections, this.options.timelineRetention);
+    }
   }
 
   /**

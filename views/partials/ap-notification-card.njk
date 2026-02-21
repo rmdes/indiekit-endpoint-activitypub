@@ -1,0 +1,58 @@
+{# Notification card partial #}
+
+<div class="ap-notification{% if not item.read %} ap-notification--unread{% endif %}">
+  {# Type icon #}
+  <div class="ap-notification__icon">
+    {% if item.type == "like" %}
+      ❤
+    {% elif item.type == "boost" %}
+      🔁
+    {% elif item.type == "follow" %}
+      👤
+    {% elif item.type == "reply" %}
+      💬
+    {% elif item.type == "mention" %}
+      @
+    {% endif %}
+  </div>
+
+  {# Notification body #}
+  <div class="ap-notification__body">
+    <span class="ap-notification__actor">
+      <a href="{{ item.actorUrl }}">{{ item.actorName }}</a>
+    </span>
+
+    <span class="ap-notification__action">
+      {% if item.type == "like" %}
+        {{ __("activitypub.notifications.liked") }}
+      {% elif item.type == "boost" %}
+        {{ __("activitypub.notifications.boostedPost") }}
+      {% elif item.type == "follow" %}
+        {{ __("activitypub.notifications.followedYou") }}
+      {% elif item.type == "reply" %}
+        {{ __("activitypub.notifications.repliedTo") }}
+      {% elif item.type == "mention" %}
+        {{ __("activitypub.notifications.mentionedYou") }}
+      {% endif %}
+    </span>
+
+    {% if item.targetUrl %}
+      <a href="{{ item.targetUrl }}" class="ap-notification__target">
+        {{ item.targetName or item.targetUrl }}
+      </a>
+    {% endif %}
+
+    {% if item.content and item.content.text %}
+      <div class="ap-notification__excerpt">
+        {{ item.content.text | truncate(200) }}
+      </div>
+    {% endif %}
+  </div>
+
+  {# Timestamp #}
+  {% if item.published %}
+    <time datetime="{{ item.published }}" class="ap-notification__time">
+      {{ item.published | date("PPp") }}
+    </time>
+  {% endif %}
+</div>

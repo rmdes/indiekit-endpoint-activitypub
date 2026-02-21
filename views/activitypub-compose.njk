@@ -1,0 +1,94 @@
+{% extends "layouts/reader.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+
+{% block content %}
+  {{ heading({
+    text: title,
+    level: 1,
+    parent: { text: __("activitypub.reader.title"), href: mountPath + "/admin/reader" }
+  }) }}
+
+  {# Reply context — show the post being replied to #}
+  {% if replyContext %}
+    <div class="ap-compose__context">
+      <div class="ap-compose__context-label">{{ __("activitypub.reader.replyingTo") }}</div>
+      {% if replyContext.author %}
+        <div class="ap-compose__context-author">
+          <a href="{{ replyContext.author.url }}">{{ replyContext.author.name }}</a>
+        </div>
+      {% endif %}
+      {% if replyContext.content and replyContext.content.text %}
+        <blockquote class="ap-compose__context-text">
+          {{ replyContext.content.text | truncate(300) }}
+        </blockquote>
+      {% endif %}
+      <a href="{{ replyTo }}" class="ap-compose__context-link" target="_blank" rel="noopener">{{ replyTo }}</a>
+    </div>
+  {% endif %}
+
+  <form method="post" action="{{ mountPath }}/admin/reader/compose" class="ap-compose__form"
+    x-data="{
+      mode: 'micropub',
+      content: '',
+      maxChars: 500,
+      get remaining() { return this.maxChars - this.content.length; }
+    }">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+    {% if replyTo %}
+      <input type="hidden" name="in-reply-to" value="{{ replyTo }}">
+    {% endif %}
+
+    {# Mode toggle #}
+    <fieldset class="ap-compose__mode">
+      <legend>{{ __("activitypub.compose.modeLabel") }}</legend>
+      <label class="ap-compose__mode-option">
+        <input type="radio" name="mode" value="micropub" x-model="mode" checked>
+        {{ __("activitypub.compose.modeMicropub") }}
+        <span class="ap-compose__mode-hint">{{ __("activitypub.compose.modeMicropubHint") }}</span>
+      </label>
+      <label class="ap-compose__mode-option">
+        <input type="radio" name="mode" value="quick" x-model="mode">
+        {{ __("activitypub.compose.modeQuick") }}
+        <span class="ap-compose__mode-hint">{{ __("activitypub.compose.modeQuickHint") }}</span>
+      </label>
+    </fieldset>
+
+    {# Content textarea #}
+    <div class="ap-compose__editor">
+      <textarea name="content" class="ap-compose__textarea"
+        rows="6"
+        :maxlength="mode === 'quick' ? maxChars : undefined"
+        x-model="content"
+        placeholder="{{ __('activitypub.compose.placeholder') }}"
+        required></textarea>
+      <div class="ap-compose__counter" x-show="mode === 'quick'" x-cloak>
+        <span :class="{ 'ap-compose__counter--warn': remaining < 50, 'ap-compose__counter--over': remaining < 0 }"
+          x-text="remaining"></span>
+      </div>
+    </div>
+
+    {# Syndication targets (Micropub mode only) #}
+    {% if syndicationTargets.length > 0 %}
+      <fieldset class="ap-compose__syndication" x-show="mode === 'micropub'">
+        <legend>{{ __("activitypub.compose.syndicateLabel") }}</legend>
+        {% for target in syndicationTargets %}
+          <label class="ap-compose__syndication-target">
+            <input type="checkbox" name="mp-syndicate-to" value="{{ target.uid }}" checked>
+            {{ target.name }}
+          </label>
+        {% endfor %}
+      </fieldset>
+    {% endif %}
+
+    <div class="ap-compose__actions">
+      <button type="submit" class="ap-compose__submit">
+        <span x-show="mode === 'micropub'">{{ __("activitypub.compose.submitMicropub") }}</span>
+        <span x-show="mode === 'quick'">{{ __("activitypub.compose.submitQuick") }}</span>
+      </button>
+      <a href="{{ mountPath }}/admin/reader" class="ap-compose__cancel">
+        {{ __("activitypub.compose.cancel") }}
+      </a>
+    </div>
+  </form>
+{% endblock %}
