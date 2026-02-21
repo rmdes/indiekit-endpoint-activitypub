@@ -3,8 +3,6 @@
 {% from "heading/macro.njk" import heading with context %}
 
 {% block readercontent %}
-  {{ heading({ text: title, level: 1 }) }}
-
   {# Reply context — show the post being replied to #}
   {% if replyContext %}
     <div class="ap-compose__context">

@@ -4,8 +4,6 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block content %}
-  {{ heading({ text: title, level: 1 }) }}
-
   {% if pinned.length > 0 %}
     <table class="table">
       <thead>

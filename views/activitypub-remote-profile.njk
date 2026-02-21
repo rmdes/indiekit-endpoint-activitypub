@@ -4,8 +4,6 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block readercontent %}
-  {{ heading({ text: title, level: 1 }) }}
-
   <div class="ap-profile"
     x-data="{
       following: {{ 'true' if isFollowing else 'false' }},

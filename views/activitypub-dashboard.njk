@@ -7,8 +7,6 @@
 {% from "badge/macro.njk" import badge with context %}
 
 {% block content %}
-  {{ heading({ text: title, level: 1 }) }}
-
   {{ cardGrid({ cardSize: "16rem", items: [
     {
       title: followerCount + " " + __("activitypub.followers"),

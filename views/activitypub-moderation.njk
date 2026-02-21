@@ -4,8 +4,6 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block readercontent %}
-  {{ heading({ text: title, level: 1 }) }}
-
   {# Blocked actors #}
   <section class="ap-moderation__section">
     <h2>{{ __("activitypub.moderation.blockedTitle") }}</h2>

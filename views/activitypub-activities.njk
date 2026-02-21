@@ -7,8 +7,6 @@
 {% from "pagination/macro.njk" import pagination with context %}
 
 {% block content %}
-  {{ heading({ text: __("activitypub.activities"), level: 1 }) }}
-
   {% if activities.length > 0 %}
     {% for activity in activities %}
       {{ card({

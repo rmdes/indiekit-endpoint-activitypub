@@ -7,8 +7,6 @@
 {% from "pagination/macro.njk" import pagination with context %}
 
 {% block content %}
-  {{ heading({ text: followingCount + " " + __("activitypub.following"), level: 1 }) }}
-
   {% if following.length > 0 %}
     {% for account in following %}
       {% if account.source === "import" %}

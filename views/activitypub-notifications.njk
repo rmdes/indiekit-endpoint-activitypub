@@ -4,8 +4,6 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block readercontent %}
-  {{ heading({ text: __("activitypub.notifications.title"), level: 1 }) }}
-
   {% if items.length > 0 %}
     <div class="ap-notifications__toolbar">
       {% if unreadCount > 0 %}
