@@ -1,6 +1,13 @@
 {# Notification card partial #}
 
 <div class="ap-notification{% if not item.read %} ap-notification--unread{% endif %}">
+  {# Dismiss button #}
+  <form method="post" action="{{ mountPath }}/admin/reader/notifications/delete" class="ap-notification__dismiss">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+    <input type="hidden" name="uid" value="{{ item.uid }}">
+    <button type="submit" class="ap-notification__dismiss-btn" title="{{ __('activitypub.notifications.dismiss') }}">&times;</button>
+  </form>
+
   {# Type icon #}
   <div class="ap-notification__icon">
     {% if item.type == "like" %}

@@ -11,6 +11,20 @@
   }) }}
 
   {% if items.length > 0 %}
+    <div class="ap-notifications__toolbar">
+      {% if unreadCount > 0 %}
+        <form method="post" action="{{ mountPath }}/admin/reader/notifications/mark-read">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          <button type="submit" class="ap-notifications__btn">{{ __("activitypub.notifications.markAllRead") }}</button>
+        </form>
+      {% endif %}
+      <form method="post" action="{{ mountPath }}/admin/reader/notifications/clear"
+            onsubmit="return confirm('{{ __("activitypub.notifications.clearConfirm") }}')">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <button type="submit" class="ap-notifications__btn ap-notifications__btn--danger">{{ __("activitypub.notifications.clearAll") }}</button>
+      </form>
+    </div>
+
     <div class="ap-timeline">
       {% for item in items %}
         {% include "partials/ap-notification-card.njk" %}

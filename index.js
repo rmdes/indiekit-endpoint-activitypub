@@ -12,6 +12,9 @@ import { dashboardController } from "./lib/controllers/dashboard.js";
 import {
   readerController,
   notificationsController,
+  markAllNotificationsReadController,
+  clearAllNotificationsController,
+  deleteNotificationController,
   composeController,
   submitComposeController,
   remoteProfileController,
@@ -79,6 +82,7 @@ const defaults = {
   parallelWorkers: 5,
   actorType: "Person",
   timelineRetention: 1000,
+  notificationRetentionDays: 30,
 };
 
 export default class ActivityPubEndpoint {
@@ -189,6 +193,9 @@ export default class ActivityPubEndpoint {
     router.get("/", dashboardController(mp));
     router.get("/admin/reader", readerController(mp));
     router.get("/admin/reader/notifications", notificationsController(mp));
+    router.post("/admin/reader/notifications/mark-read", markAllNotificationsReadController(mp));
+    router.post("/admin/reader/notifications/clear", clearAllNotificationsController(mp));
+    router.post("/admin/reader/notifications/delete", deleteNotificationController(mp));
     router.get("/admin/reader/compose", composeController(mp, this));
     router.post("/admin/reader/compose", submitComposeController(mp, this));
     router.post("/admin/reader/like", likeController(mp, this));
@@ -834,6 +841,15 @@ export default class ActivityPubEndpoint {
       { read: 1 },
       { background: true },
     );
+
+    // TTL index for notification cleanup
+    const notifRetention = this.options.notificationRetentionDays;
+    if (notifRetention > 0) {
+      this._collections.ap_notifications.createIndex(
+        { createdAt: 1 },
+        { expireAfterSeconds: notifRetention * 86_400 },
+      );
+    }
 
     this._collections.ap_muted.createIndex(
       { url: 1 },

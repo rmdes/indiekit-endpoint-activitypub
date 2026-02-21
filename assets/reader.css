@@ -746,6 +746,37 @@
    Notifications
    ========================================================================== */
 
+/* Notifications Toolbar */
+.ap-notifications__toolbar {
+  display: flex;
+  gap: var(--space-s);
+  margin-bottom: var(--space-m);
+}
+
+.ap-notifications__btn {
+  background: var(--color-offset);
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-background);
+  cursor: pointer;
+  font-size: var(--font-size-s);
+  padding: var(--space-xs) var(--space-m);
+  transition: all 0.2s ease;
+}
+
+.ap-notifications__btn:hover {
+  background: var(--color-offset-variant);
+  border-color: var(--color-outline-variant);
+}
+
+.ap-notifications__btn--danger {
+  color: var(--color-red45);
+}
+
+.ap-notifications__btn--danger:hover {
+  border-color: var(--color-red45);
+}
+
 .ap-notification {
   align-items: flex-start;
   background: var(--color-offset);
@@ -754,6 +785,7 @@
   display: flex;
   gap: var(--space-s);
   padding: var(--space-m);
+  position: relative;
 }
 
 .ap-notification--unread {
@@ -801,6 +833,29 @@
   color: var(--color-on-offset);
   flex-shrink: 0;
   font-size: var(--font-size-xs);
+}
+
+.ap-notification__dismiss {
+  position: absolute;
+  right: var(--space-xs);
+  top: var(--space-xs);
+}
+
+.ap-notification__dismiss-btn {
+  background: transparent;
+  border: 0;
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-offset);
+  cursor: pointer;
+  font-size: var(--font-size-m);
+  line-height: 1;
+  padding: 2px 6px;
+  transition: all 0.2s ease;
+}
+
+.ap-notification__dismiss-btn:hover {
+  background: var(--color-offset-variant);
+  color: var(--color-red45);
 }
 
 /* ==========================================================================

@@ -141,7 +141,11 @@
       "boostedPost": "boosted your post",
       "followedYou": "followed you",
       "repliedTo": "replied to your post",
-      "mentionedYou": "mentioned you"
+      "mentionedYou": "mentioned you",
+      "markAllRead": "Mark all read",
+      "clearAll": "Clear all",
+      "clearConfirm": "Delete all notifications? This cannot be undone.",
+      "dismiss": "Dismiss"
     },
     "reader": {
       "title": "Reader",
