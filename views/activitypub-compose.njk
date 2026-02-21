@@ -18,9 +18,9 @@
           <a href="{{ replyContext.author.url }}">{{ replyContext.author.name }}</a>
         </div>
       {% endif %}
-      {% if replyContext.content and replyContext.content.text %}
+      {% if replyContext.content and (replyContext.content.html or replyContext.content.text) %}
         <blockquote class="ap-compose__context-text">
-          {{ replyContext.content.text | truncate(300) }}
+          {{ replyContext.content.html | safe if replyContext.content.html else replyContext.content.text | truncate(300) }}
         </blockquote>
       {% endif %}
       <a href="{{ replyTo }}" class="ap-compose__context-link" target="_blank" rel="noopener">{{ replyTo }}</a>
@@ -74,7 +74,7 @@
         <legend>{{ __("activitypub.compose.syndicateLabel") }}</legend>
         {% for target in syndicationTargets %}
           <label class="ap-compose__syndication-target">
-            <input type="checkbox" name="mp-syndicate-to" value="{{ target.uid }}" checked>
+            <input type="checkbox" name="mp-syndicate-to" value="{{ target.uid }}" {{ "checked" if target.defaultChecked }}>
             {{ target.name }}
           </label>
         {% endfor %}

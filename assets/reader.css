@@ -296,24 +296,40 @@
   max-width: 100%;
 }
 
-/* @mentions — styled as subtle pills to distinguish from prose */
-.ap-card__content .h-card,
-.ap-card__content a.u-url.mention {
-  color: var(--color-on-offset);
-  font-size: var(--font-size-s);
-  text-decoration: none;
+/* @mentions — keep inline, style as subtle links */
+.ap-card__content .h-card {
+  display: inline;
 }
 
+.ap-card__content .h-card a,
+.ap-card__content a.u-url.mention {
+  display: inline;
+  color: var(--color-on-offset);
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.ap-card__content .h-card a span,
+.ap-card__content a.u-url.mention span {
+  display: inline;
+}
+
+.ap-card__content .h-card a:hover,
 .ap-card__content a.u-url.mention:hover {
   color: var(--color-primary);
   text-decoration: underline;
 }
 
-/* Hashtag mentions — subtle tag styling */
+/* Hashtag mentions — keep inline, subtle styling */
 .ap-card__content a.mention.hashtag {
+  display: inline;
   color: var(--color-on-offset);
-  font-size: var(--font-size-s);
   text-decoration: none;
+  white-space: nowrap;
+}
+
+.ap-card__content a.mention.hashtag span {
+  display: inline;
 }
 
 .ap-card__content a.mention.hashtag:hover {

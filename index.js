@@ -496,7 +496,13 @@ export default class ActivityPubEndpoint {
       );
 
       // Resolve the remote actor to get their inbox
-      const remoteActor = await ctx.lookupObject(actorUrl);
+      // Use authenticated document loader for servers requiring Authorized Fetch
+      const documentLoader = await ctx.getDocumentLoader({
+        identifier: handle,
+      });
+      const remoteActor = await ctx.lookupObject(actorUrl, {
+        documentLoader,
+      });
       if (!remoteActor) {
         return { ok: false, error: "Could not resolve remote actor" };
       }
@@ -591,7 +597,13 @@ export default class ActivityPubEndpoint {
         { handle, publicationUrl: this._publicationUrl },
       );
 
-      const remoteActor = await ctx.lookupObject(actorUrl);
+      // Use authenticated document loader for servers requiring Authorized Fetch
+      const documentLoader = await ctx.getDocumentLoader({
+        identifier: handle,
+      });
+      const remoteActor = await ctx.lookupObject(actorUrl, {
+        documentLoader,
+      });
       if (!remoteActor) {
         // Even if we can't resolve, remove locally
         await this._collections.ap_following.deleteOne({ actorUrl });

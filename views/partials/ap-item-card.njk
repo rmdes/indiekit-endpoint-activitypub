@@ -97,11 +97,13 @@
   {% endif %}
 
   {# Interaction buttons — Alpine.js for optimistic updates #}
-  {# Dynamic data moved to data-* attributes to prevent XSS from inline interpolation #}
+  {# Use canonical AP uid for interactions (Fedify lookupObject), display url for links #}
   {% set itemUrl = item.url or item.originalUrl %}
-  {% set isLiked = interactionMap[itemUrl].like if interactionMap[itemUrl] else false %}
-  {% set isBoosted = interactionMap[itemUrl].boost if interactionMap[itemUrl] else false %}
+  {% set itemUid = item.uid or item.url or item.originalUrl %}
+  {% set isLiked = interactionMap[itemUid].like if interactionMap[itemUid] else false %}
+  {% set isBoosted = interactionMap[itemUid].boost if interactionMap[itemUid] else false %}
   <footer class="ap-card__actions"
+    data-item-uid="{{ itemUid }}"
     data-item-url="{{ itemUrl }}"
     data-csrf-token="{{ csrfToken }}"
     data-mount-path="{{ mountPath }}"
@@ -115,7 +117,7 @@
         this.loading = true;
         this.error = '';
         const el = this.$root;
-        const itemUrl = el.dataset.itemUrl;
+        const itemUid = el.dataset.itemUid;
         const csrfToken = el.dataset.csrfToken;
         const basePath = el.dataset.mountPath;
         const prev = { liked: this.liked, boosted: this.boosted };
@@ -130,7 +132,7 @@
               'Content-Type': 'application/json',
               'X-CSRF-Token': csrfToken
             },
-            body: JSON.stringify({ url: itemUrl })
+            body: JSON.stringify({ url: itemUid })
           });
           const data = await res.json();
           if (!data.success) {
@@ -147,7 +149,7 @@
         if (this.error) setTimeout(() => this.error = '', 3000);
       }
     }">
-    <a href="{{ mountPath }}/admin/reader/compose?replyTo={{ itemUrl | urlencode }}"
+    <a href="{{ mountPath }}/admin/reader/compose?replyTo={{ itemUid | urlencode }}"
        class="ap-card__action ap-card__action--reply"
        title="{{ __('activitypub.reader.actions.reply') }}">
       ↩ {{ __("activitypub.reader.actions.reply") }}
