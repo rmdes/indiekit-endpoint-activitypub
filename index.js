@@ -58,6 +58,7 @@ import {
   featuredTagsRemoveController,
 } from "./lib/controllers/featured-tags.js";
 import { resolveController } from "./lib/controllers/resolve.js";
+import { publicProfileController } from "./lib/controllers/public-profile.js";
 import {
   refollowPauseController,
   refollowResumeController,
@@ -158,11 +159,9 @@ export default class ActivityPubEndpoint {
       return self._fedifyMiddleware(req, res, next);
     });
 
-    // HTML fallback for actor URL — redirect browsers to the site homepage.
+    // HTML fallback for actor URL — serve a public profile page.
     // Fedify only serves JSON-LD; browsers get 406 and fall through here.
-    router.get("/users/:identifier", (req, res) => {
-      res.redirect(self._publicationUrl || "/");
-    });
+    router.get("/users/:identifier", publicProfileController(self));
 
     // Catch-all for federation paths that Fedify didn't handle (e.g. GET
     // on inbox). Without this, they fall through to Indiekit's auth

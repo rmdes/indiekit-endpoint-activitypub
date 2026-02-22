@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{ profile.name or handle }} (@{{ handle }}@{{ domain }})</title>
+  <meta name="description" content="{{ profile.summary | striptags | truncate(160) if profile.summary else fullHandle }}">
+  <meta property="og:title" content="{{ profile.name or handle }}">
+  <meta property="og:description" content="{{ profile.summary | striptags | truncate(160) if profile.summary else fullHandle }}">
+  {% if profile.icon %}
+    <meta property="og:image" content="{{ profile.icon }}">
+  {% endif %}
+  <meta property="og:type" content="profile">
+  <meta property="og:url" content="{{ actorUrl }}">
+  <link rel="me" href="{{ siteUrl }}">
+  <link rel="alternate" type="application/activity+json" href="{{ actorUrl }}">
+  <style>
+    /* ================================================================
+       CSS Custom Properties — light/dark mode
+       ================================================================ */
+    :root {
+      --color-bg: #fff;
+      --color-surface: #f5f5f5;
+      --color-surface-raised: #fff;
+      --color-text: #1a1a1a;
+      --color-text-muted: #666;
+      --color-text-faint: #999;
+      --color-border: #e0e0e0;
+      --color-accent: #4f46e5;
+      --color-accent-text: #fff;
+      --color-purple: #7c3aed;
+      --color-green: #16a34a;
+      --color-yellow: #ca8a04;
+      --color-blue: #2563eb;
+      --radius-s: 6px;
+      --radius-m: 10px;
+      --radius-l: 16px;
+      --radius-full: 9999px;
+      --space-xs: 4px;
+      --space-s: 8px;
+      --space-m: 16px;
+      --space-l: 24px;
+      --space-xl: 32px;
+      --space-2xl: 48px;
+      --font-sans: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --shadow-s: 0 1px 2px rgba(0,0,0,0.05);
+      --shadow-m: 0 2px 8px rgba(0,0,0,0.08);
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --color-bg: #111;
+        --color-surface: #1a1a1a;
+        --color-surface-raised: #222;
+        --color-text: #e5e5e5;
+        --color-text-muted: #999;
+        --color-text-faint: #666;
+        --color-border: #333;
+        --color-accent: #818cf8;
+        --color-accent-text: #111;
+        --color-purple: #a78bfa;
+        --color-green: #4ade80;
+        --color-yellow: #facc15;
+        --color-blue: #60a5fa;
+        --shadow-s: 0 1px 2px rgba(0,0,0,0.2);
+        --shadow-m: 0 2px 8px rgba(0,0,0,0.3);
+      }
+    }
+
+    /* ================================================================
+       Base
+       ================================================================ */
+    *, *::before, *::after { box-sizing: border-box; }
+
+    body {
+      background: var(--color-bg);
+      color: var(--color-text);
+      font-family: var(--font-sans);
+      line-height: 1.5;
+      margin: 0;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--color-accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    .ap-pub {
+      margin: 0 auto;
+      max-width: 640px;
+      padding: 0 var(--space-m);
+    }
+
+    /* ================================================================
+       Header image
+       ================================================================ */
+    .ap-pub__header {
+      background: var(--color-surface);
+      height: 220px;
+      overflow: hidden;
+      position: relative;
+    }
+
+    .ap-pub__header img {
+      display: block;
+      height: 100%;
+      object-fit: cover;
+      width: 100%;
+    }
+
+    .ap-pub__header--empty {
+      background: linear-gradient(135deg, var(--color-accent), var(--color-purple));
+      height: 160px;
+    }
+
+    /* ================================================================
+       Identity — avatar, name, handle
+       ================================================================ */
+    .ap-pub__identity {
+      padding: 0 var(--space-m);
+      position: relative;
+    }
+
+    .ap-pub__avatar-wrap {
+      margin-top: -48px;
+      position: relative;
+      width: 96px;
+    }
+
+    .ap-pub__avatar {
+      background: var(--color-surface);
+      border: 4px solid var(--color-bg);
+      border-radius: var(--radius-full);
+      display: block;
+      height: 96px;
+      object-fit: cover;
+      width: 96px;
+    }
+
+    .ap-pub__avatar--placeholder {
+      align-items: center;
+      background: var(--color-surface);
+      border: 4px solid var(--color-bg);
+      border-radius: var(--radius-full);
+      color: var(--color-text-muted);
+      display: flex;
+      font-size: 2.5em;
+      font-weight: 700;
+      height: 96px;
+      justify-content: center;
+      width: 96px;
+    }
+
+    .ap-pub__name {
+      font-size: 1.5em;
+      font-weight: 700;
+      line-height: 1.2;
+      margin: var(--space-s) 0 var(--space-xs);
+    }
+
+    .ap-pub__handle {
+      color: var(--color-text-muted);
+      font-size: 0.95em;
+      margin-bottom: var(--space-m);
+    }
+
+    /* ================================================================
+       Bio
+       ================================================================ */
+    .ap-pub__bio {
+      line-height: 1.6;
+      margin-bottom: var(--space-l);
+      padding: 0 var(--space-m);
+    }
+
+    .ap-pub__bio a { color: var(--color-accent); }
+
+    .ap-pub__bio p { margin: 0 0 var(--space-s); }
+    .ap-pub__bio p:last-child { margin-bottom: 0; }
+
+    /* ================================================================
+       Profile fields
+       ================================================================ */
+    .ap-pub__fields {
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-m);
+      margin: 0 var(--space-m) var(--space-l);
+      overflow: hidden;
+    }
+
+    .ap-pub__field {
+      border-bottom: 1px solid var(--color-border);
+      display: grid;
+      grid-template-columns: 140px 1fr;
+    }
+
+    .ap-pub__field:last-child { border-bottom: 0; }
+
+    .ap-pub__field-name {
+      background: var(--color-surface);
+      color: var(--color-text-muted);
+      font-size: 0.85em;
+      font-weight: 600;
+      padding: var(--space-s) var(--space-m);
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    .ap-pub__field-value {
+      font-size: 0.95em;
+      overflow: hidden;
+      padding: var(--space-s) var(--space-m);
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .ap-pub__field-value a { color: var(--color-accent); }
+
+    /* ================================================================
+       Stats bar
+       ================================================================ */
+    .ap-pub__stats {
+      border-bottom: 1px solid var(--color-border);
+      border-top: 1px solid var(--color-border);
+      display: flex;
+      margin: 0 var(--space-m) var(--space-l);
+      padding: var(--space-m) 0;
+    }
+
+    .ap-pub__stat {
+      flex: 1;
+      text-align: center;
+    }
+
+    .ap-pub__stat-value {
+      display: block;
+      font-size: 1.2em;
+      font-weight: 700;
+    }
+
+    .ap-pub__stat-label {
+      color: var(--color-text-muted);
+      display: block;
+      font-size: 0.8em;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ================================================================
+       Follow prompt
+       ================================================================ */
+    .ap-pub__follow {
+      background: var(--color-surface);
+      border-radius: var(--radius-m);
+      margin: 0 var(--space-m) var(--space-l);
+      padding: var(--space-l);
+      text-align: center;
+    }
+
+    .ap-pub__follow-title {
+      font-size: 1em;
+      font-weight: 600;
+      margin: 0 0 var(--space-s);
+    }
+
+    .ap-pub__follow-handle {
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
+      border-radius: var(--radius-s);
+      display: inline-flex;
+      align-items: center;
+      gap: var(--space-s);
+      padding: var(--space-s) var(--space-m);
+    }
+
+    .ap-pub__follow-text {
+      color: var(--color-text);
+      font-family: monospace;
+      font-size: 0.95em;
+      user-select: all;
+    }
+
+    .ap-pub__copy-btn {
+      background: var(--color-accent);
+      border: 0;
+      border-radius: var(--radius-s);
+      color: var(--color-accent-text);
+      cursor: pointer;
+      font-size: 0.8em;
+      font-weight: 600;
+      padding: var(--space-xs) var(--space-s);
+      transition: opacity 0.2s;
+    }
+
+    .ap-pub__copy-btn:hover { opacity: 0.85; }
+
+    /* ================================================================
+       Section headings
+       ================================================================ */
+    .ap-pub__section-title {
+      border-bottom: 1px solid var(--color-border);
+      font-size: 1.1em;
+      font-weight: 600;
+      margin: 0 var(--space-m) var(--space-m);
+      padding-bottom: var(--space-s);
+    }
+
+    /* ================================================================
+       Post cards (pinned + recent)
+       ================================================================ */
+    .ap-pub__posts {
+      display: flex;
+      flex-direction: column;
+      gap: var(--space-s);
+      margin: 0 var(--space-m) var(--space-l);
+    }
+
+    .ap-pub__post {
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border);
+      border-left: 3px solid var(--color-border);
+      border-radius: var(--radius-s);
+      display: block;
+      padding: var(--space-m);
+      text-decoration: none;
+      transition: border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .ap-pub__post:hover {
+      border-color: var(--color-accent);
+      box-shadow: var(--shadow-s);
+      text-decoration: none;
+    }
+
+    .ap-pub__post--article { border-left-color: var(--color-green); }
+    .ap-pub__post--note { border-left-color: var(--color-purple); }
+    .ap-pub__post--photo { border-left-color: var(--color-yellow); }
+    .ap-pub__post--bookmark { border-left-color: var(--color-blue); }
+
+    .ap-pub__post-meta {
+      align-items: center;
+      color: var(--color-text-muted);
+      display: flex;
+      font-size: 0.8em;
+      gap: var(--space-s);
+      margin-bottom: var(--space-xs);
+    }
+
+    .ap-pub__post-type {
+      background: var(--color-surface);
+      border-radius: var(--radius-s);
+      font-size: 0.85em;
+      font-weight: 600;
+      padding: 1px 6px;
+      text-transform: capitalize;
+    }
+
+    .ap-pub__post-title {
+      color: var(--color-text);
+      font-weight: 600;
+      line-height: 1.4;
+    }
+
+    .ap-pub__post-excerpt {
+      color: var(--color-text-muted);
+      font-size: 0.9em;
+      line-height: 1.5;
+      margin-top: var(--space-xs);
+    }
+
+    .ap-pub__pinned-label {
+      color: var(--color-yellow);
+      font-size: 0.75em;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* ================================================================
+       Footer
+       ================================================================ */
+    .ap-pub__footer {
+      border-top: 1px solid var(--color-border);
+      color: var(--color-text-faint);
+      font-size: 0.85em;
+      margin: var(--space-xl) var(--space-m) 0;
+      padding: var(--space-l) 0;
+      text-align: center;
+    }
+
+    .ap-pub__footer a { color: var(--color-text-muted); }
+
+    /* ================================================================
+       Empty state
+       ================================================================ */
+    .ap-pub__empty {
+      color: var(--color-text-muted);
+      font-style: italic;
+      padding: var(--space-m) 0;
+      text-align: center;
+    }
+
+    /* ================================================================
+       Responsive
+       ================================================================ */
+    @media (max-width: 480px) {
+      .ap-pub__header { height: 160px; }
+      .ap-pub__header--empty { height: 120px; }
+
+      .ap-pub__field {
+        grid-template-columns: 1fr;
+      }
+
+      .ap-pub__field-name {
+        border-bottom: 0;
+        padding-bottom: var(--space-xs);
+      }
+
+      .ap-pub__field-value {
+        padding-top: 0;
+      }
+
+      .ap-pub__stats { flex-wrap: wrap; }
+
+      .ap-pub__stat {
+        flex: 0 0 50%;
+        margin-bottom: var(--space-s);
+      }
+
+      .ap-pub__follow-handle {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  {# ---- Header image ---- #}
+  {% if profile.image %}
+    <div class="ap-pub__header">
+      <img src="{{ profile.image }}" alt="">
+    </div>
+  {% else %}
+    <div class="ap-pub__header ap-pub__header--empty"></div>
+  {% endif %}
+
+  <div class="ap-pub">
+    {# ---- Avatar + identity ---- #}
+    <div class="ap-pub__identity">
+      <div class="ap-pub__avatar-wrap">
+        {% if profile.icon %}
+          <img src="{{ profile.icon }}" alt="{{ profile.name or handle }}" class="ap-pub__avatar">
+        {% else %}
+          <div class="ap-pub__avatar--placeholder">{{ (profile.name or handle)[0] | upper }}</div>
+        {% endif %}
+      </div>
+      <h1 class="ap-pub__name">{{ profile.name or handle }}</h1>
+      <div class="ap-pub__handle">{{ fullHandle }}</div>
+    </div>
+
+    {# ---- Bio ---- #}
+    {% if profile.summary %}
+      <div class="ap-pub__bio">{{ profile.summary | safe }}</div>
+    {% endif %}
+
+    {# ---- Profile fields (attachments) ---- #}
+    {% if profile.attachments and profile.attachments.length > 0 %}
+      <dl class="ap-pub__fields">
+        {% for field in profile.attachments %}
+          <div class="ap-pub__field">
+            <dt class="ap-pub__field-name">{{ field.name }}</dt>
+            <dd class="ap-pub__field-value">
+              {% if field.value and (field.value.startsWith("http://") or field.value.startsWith("https://")) %}
+                <a href="{{ field.value }}" rel="noopener nofollow" target="_blank">{{ field.value | replace("https://", "") | replace("http://", "") }}</a>
+              {% else %}
+                {{ field.value }}
+              {% endif %}
+            </dd>
+          </div>
+        {% endfor %}
+      </dl>
+    {% endif %}
+
+    {# ---- Stats bar ---- #}
+    <div class="ap-pub__stats">
+      <div class="ap-pub__stat">
+        <span class="ap-pub__stat-value">{{ postCount }}</span>
+        <span class="ap-pub__stat-label">Posts</span>
+      </div>
+      <div class="ap-pub__stat">
+        <span class="ap-pub__stat-value">{{ followingCount }}</span>
+        <span class="ap-pub__stat-label">Following</span>
+      </div>
+      <div class="ap-pub__stat">
+        <span class="ap-pub__stat-value">{{ followerCount }}</span>
+        <span class="ap-pub__stat-label">Followers</span>
+      </div>
+      {% if profile.createdAt %}
+        <div class="ap-pub__stat">
+          <span class="ap-pub__stat-value" id="joined-date">—</span>
+          <span class="ap-pub__stat-label">Joined</span>
+        </div>
+      {% endif %}
+    </div>
+
+    {# ---- Follow prompt ---- #}
+    <div class="ap-pub__follow">
+      <p class="ap-pub__follow-title">Follow me on the fediverse</p>
+      <div class="ap-pub__follow-handle">
+        <span class="ap-pub__follow-text" id="fedi-handle">{{ fullHandle }}</span>
+        <button class="ap-pub__copy-btn" id="copy-btn" type="button">Copy handle</button>
+      </div>
+    </div>
+
+    {# ---- Pinned posts ---- #}
+    {% if pinned.length > 0 %}
+      <h2 class="ap-pub__section-title">Pinned posts</h2>
+      <div class="ap-pub__posts">
+        {% for post in pinned %}
+          <a href="{{ post.url }}" class="ap-pub__post ap-pub__post--{{ post.type }}">
+            <div class="ap-pub__post-meta">
+              <span class="ap-pub__pinned-label">Pinned</span>
+              <span class="ap-pub__post-type">{{ post.type }}</span>
+              {% if post.published %}
+                <time datetime="{{ post.published }}">{{ post.published | truncate(10, true, "") }}</time>
+              {% endif %}
+            </div>
+            <div class="ap-pub__post-title">{{ post.title }}</div>
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {# ---- Recent posts ---- #}
+    {% if recentPosts.length > 0 %}
+      <h2 class="ap-pub__section-title">Recent posts</h2>
+      <div class="ap-pub__posts">
+        {% for post in recentPosts %}
+          {% set postType = post["post-type"] or "note" %}
+          <a href="{{ post.url }}" class="ap-pub__post ap-pub__post--{{ postType }}">
+            <div class="ap-pub__post-meta">
+              <span class="ap-pub__post-type">{{ postType }}</span>
+              {% if post.published %}
+                <time datetime="{{ post.published }}">{{ post.published | truncate(10, true, "") }}</time>
+              {% endif %}
+            </div>
+            {% if post.name %}
+              <div class="ap-pub__post-title">{{ post.name }}</div>
+            {% endif %}
+            {% if post.content and post.content.text %}
+              <div class="ap-pub__post-excerpt">{{ post.content.text | truncate(150) }}</div>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </div>
+    {% endif %}
+
+    {# ---- Empty state ---- #}
+    {% if pinned.length === 0 and recentPosts.length === 0 %}
+      <p class="ap-pub__empty">No posts yet.</p>
+    {% endif %}
+
+    {# ---- Footer ---- #}
+    <footer class="ap-pub__footer">
+      <a href="{{ siteUrl }}">{{ domain }}</a>
+    </footer>
+  </div>
+
+  <script>
+    // Copy handle to clipboard
+    document.getElementById("copy-btn").addEventListener("click", function() {
+      var handle = document.getElementById("fedi-handle").textContent;
+      navigator.clipboard.writeText(handle).then(function() {
+        var btn = document.getElementById("copy-btn");
+        btn.textContent = "Copied!";
+        setTimeout(function() { btn.textContent = "Copy handle"; }, 2000);
+      });
+    });
+
+    // Format joined date
+    {% if profile.createdAt %}
+    (function() {
+      var el = document.getElementById("joined-date");
+      if (el) {
+        try {
+          var d = new Date("{{ profile.createdAt }}");
+          el.textContent = d.toLocaleDateString(undefined, { month: "short", year: "numeric" });
+        } catch(e) { el.textContent = "—"; }
+      }
+    })();
+    {% endif %}
+  </script>
+</body>
+</html>

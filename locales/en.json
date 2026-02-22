@@ -50,6 +50,18 @@
       "authorizedFetchHint": "When enabled, only servers with valid HTTP Signatures can fetch your actor and collections. This improves privacy but may reduce compatibility with some clients.",
       "save": "Save profile",
       "saved": "Profile saved. Changes are now visible to the fediverse.",
+      "public": {
+        "followPrompt": "Follow me on the fediverse",
+        "copyHandle": "Copy handle",
+        "copied": "Copied!",
+        "pinnedPosts": "Pinned posts",
+        "recentPosts": "Recent posts",
+        "joinedDate": "Joined",
+        "posts": "Posts",
+        "followers": "Followers",
+        "following": "Following",
+        "viewOnSite": "View on site"
+      },
       "remote": {
         "follow": "Follow",
         "unfollow": "Unfollow",
