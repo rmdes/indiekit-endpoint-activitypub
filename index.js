@@ -1,6 +1,6 @@
 import express from "express";
 
-import { setupFederation } from "./lib/federation-setup.js";
+import { setupFederation, buildPersonActor } from "./lib/federation-setup.js";
 import {
   createFedifyMiddleware,
 } from "./lib/federation-bridge.js";
@@ -690,9 +690,15 @@ export default class ActivityPubEndpoint {
         { handle, publicationUrl: this._publicationUrl },
       );
 
-      // Retrieve the full actor from the dispatcher (same object remote
-      // servers will get when they re-fetch the actor URL)
-      const actor = await ctx.getActor(handle);
+      // Build the full actor object (same as what the dispatcher serves).
+      // Note: ctx.getActor() only exists on RequestContext, not the base
+      // Context returned by createContext(), so we use the shared helper.
+      const actor = await buildPersonActor(
+        ctx,
+        handle,
+        this._collections,
+        this.options.actorType,
+      );
       if (!actor) {
         console.warn("[ActivityPub] broadcastActorUpdate: could not build actor");
         return;
