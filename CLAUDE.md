@@ -19,7 +19,7 @@ index.js                          ← Plugin entry, route registration, syndicat
 ├── lib/federation-bridge.js      ← Express ↔ Fedify request/response bridge
 ├── lib/inbox-listeners.js        ← Handlers for Follow, Undo, Like, Announce, Create, Delete, etc.
 ├── lib/jf2-to-as2.js             ← JF2 → ActivityStreams conversion (plain JSON + Fedify vocab)
-├── lib/kv-store.js               ← MongoDB-backed KvStore for Fedify
+├── lib/kv-store.js               ← MongoDB-backed KvStore for Fedify (get/set/delete/list)
 ├── lib/activity-log.js           ← Activity logging to ap_activities
 ├── lib/timeline-store.js         ← Timeline item extraction + sanitization
 ├── lib/timeline-cleanup.js       ← Retention-based timeline pruning
@@ -32,6 +32,7 @@ index.js                          ← Plugin entry, route registration, syndicat
 │   └── moderation.js             ← Mute/block storage
 ├── lib/controllers/              ← Express route handlers (admin UI)
 │   ├── dashboard.js, reader.js, compose.js, profile.js, profile.remote.js
+│   ├── public-profile.js         ← Public profile page (HTML fallback for actor URL)
 │   ├── followers.js, following.js, activities.js
 │   ├── featured.js, featured-tags.js
 │   ├── interactions.js, interactions-like.js, interactions-boost.js
@@ -77,6 +78,8 @@ Reader:   Followed account posts → Create inbox → timeline-store → ap_time
 ### 1. Express ↔ Fedify Bridge (CUSTOM — NOT @fedify/express)
 
 We **cannot** use `@fedify/express`'s `integrateFederation()` because Indiekit mounts plugins at sub-paths. Express strips the mount prefix from `req.url`, breaking Fedify's URI template matching. Instead, `federation-bridge.js` uses `req.originalUrl` to build the full URL.
+
+The bridge also **reconstructs POST bodies** from `req.body` when Express body parser has already consumed the request stream (checked via `req.readable === false`). Without this, POST handlers in Fedify (e.g. the `@fedify/debugger` login form) receive empty bodies and fail with `"Response body object should not be disturbed or locked"`.
 
 **If you see path-matching issues with Fedify, check that `req.originalUrl` is being used, not `req.url`.**
 
@@ -154,6 +157,8 @@ Fedify uses `@js-temporal/polyfill` for dates. When setting `published` on Fedif
 
 `@logtape/logtape`'s `configure()` can only be called once per process. The module-level `_logtapeConfigured` flag prevents duplicate configuration. If configure fails (e.g., another plugin already configured it), catch the error silently.
 
+When the debug dashboard is enabled (`debugDashboard: true`), LogTape configuration is **skipped entirely** because `@fedify/debugger` configures its own LogTape sink for the dashboard UI.
+
 ### 16. .authorize() Intentionally NOT Chained on Actor Dispatcher
 
 Fedify's `.authorize()` triggers HTTP Signature verification on every GET to the actor endpoint. Servers requiring Authorized Fetch cause infinite loops: Fedify tries to fetch their key → they return 401 → Fedify retries → 500 errors. Re-enable when Fedify supports authenticated document loading for outgoing fetches.
@@ -165,6 +170,36 @@ Fedify's `.authorize()` triggers HTTP Signature verification on every GET to the
 ### 18. Shared Key Dispatcher for Shared Inbox
 
 `inboxChain.setSharedKeyDispatcher()` tells Fedify to use our actor's key pair when verifying HTTP Signatures on the shared inbox. Without this, servers like hachyderm.io (which requires Authorized Fetch) have their signatures rejected.
+
+### 19. Fedify 2.0 Modular Imports
+
+Fedify 2.0 uses modular entry points instead of a single barrel export. Imports must use the correct subpath:
+
+```javascript
+// Core federation infra
+import { createFederation, InProcessMessageQueue } from "@fedify/fedify";
+
+// Crypto operations (key generation, import/export)
+import { exportJwk, generateCryptoKeyPair, importJwk } from "@fedify/fedify/sig";
+
+// ActivityStreams vocabulary types
+import { Person, Note, Article, Create, Follow, ... } from "@fedify/fedify/vocab";
+
+// WRONG (Fedify 1.x style) — these no longer work:
+// import { Person, createFederation, exportJwk } from "@fedify/fedify";
+```
+
+### 20. importSpki Removed in Fedify 2.0
+
+Fedify 1.x exported `importSpki()` for loading PEM public keys. This was removed in 2.0. The local `importSpkiPem()` function in `federation-setup.js` replaces it using the Web Crypto API directly (`crypto.subtle.importKey("spki", ...)`). Similarly, `importPkcs8Pem()` handles private keys in PKCS#8 format.
+
+### 21. KvStore Requires list() in Fedify 2.0
+
+Fedify 2.0 added a `list(prefix?)` method to the KvStore interface. It must return an `AsyncIterable<{ key: string[], value: unknown }>`. The `MongoKvStore` in `kv-store.js` implements this as an async generator that queries MongoDB with a regex prefix match on the `_id` field.
+
+### 22. Debug Dashboard Body Consumption
+
+The `@fedify/debugger` login form POSTs `application/x-www-form-urlencoded` data. Because Express's body parser runs before the Fedify bridge, the POST body stream is already consumed (`req.readable === false`). The bridge in `federation-bridge.js` detects this and reconstructs the body from `req.body`. Without this, the debugger's login handler receives an empty body and throws `"Response body object should not be disturbed or locked"`. See also Gotcha #1.
 
 ## Date Handling Convention
 
@@ -230,18 +265,21 @@ On restart, `refollow:pending` entries are reset to `import` to prevent stale cl
 | `GET/POST` | `{mount}/admin/tags` | Featured tags | Yes |
 | `GET/POST` | `{mount}/admin/migrate` | Mastodon migration | Yes |
 | `*` | `{mount}/admin/refollow/*` | Batch refollow control | Yes |
+| `*` | `{mount}/__debug__/*` | Fedify debug dashboard (if enabled) | Password |
+| `GET` | `{mount}/users/:identifier` | Public profile page (HTML fallback) | No |
 | `GET` | `/*` (root) | Content negotiation (AP clients only) | No |
 
 ## Dependencies
 
 | Package | Purpose |
 |---|---|
-| `@fedify/fedify` | ActivityPub federation framework |
-| `@fedify/express` | Express integration utilities (types only — bridge is custom) |
+| `@fedify/fedify` | ActivityPub federation framework (v2.0+) |
+| `@fedify/debugger` | Optional debug dashboard with OpenTelemetry tracing |
 | `@fedify/redis` | Redis message queue for delivery |
 | `@js-temporal/polyfill` | Temporal API for Fedify date handling |
 | `ioredis` | Redis client |
 | `sanitize-html` | XSS prevention for timeline/notification content |
+| `unfurl.js` | Open Graph metadata extraction for link previews |
 | `express` | Route handling (peer: Indiekit provides it) |
 
 ## Configuration Options
@@ -264,6 +302,9 @@ On restart, `refollow:pending` entries are reset to `import` to prevent stale cl
   actorType: "Person",              // Person | Service | Organization | Group
   logLevel: "warning",             // Fedify log level: debug | info | warning | error | fatal
   timelineRetention: 1000,          // Max timeline items (0 = unlimited)
+  notificationRetentionDays: 30,    // Days to keep notifications (0 = forever)
+  debugDashboard: false,            // Enable @fedify/debugger dashboard at {mount}/__debug__/
+  debugPassword: "",                // Password for debug dashboard (required if dashboard enabled)
 }
 ```
 

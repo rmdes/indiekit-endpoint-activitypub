@@ -1,6 +1,6 @@
 # @rmdes/indiekit-endpoint-activitypub
 
-ActivityPub federation endpoint for [Indiekit](https://getindiekit.com). Makes your IndieWeb site a full fediverse actor — discoverable, followable, and interactive from Mastodon, Misskey, Pixelfed, and any ActivityPub-compatible platform.
+ActivityPub federation endpoint for [Indiekit](https://getindiekit.com), built on [Fedify](https://fedify.dev) 2.0. Makes your IndieWeb site a full fediverse actor — discoverable, followable, and interactive from Mastodon, Misskey, Pixelfed, and any ActivityPub-compatible platform.
 
 ## Features
 
@@ -34,6 +34,17 @@ ActivityPub federation endpoint for [Indiekit](https://getindiekit.com). Makes y
 - Batch re-follow processor — gradually sends Follow activities to imported accounts
 - Progress tracking with pause/resume controls
 
+**Public Profile**
+- Standalone profile page at the actor URL (HTML fallback for browsers)
+- Shows avatar, bio, profile fields, follower/following/post counts, and follow prompt
+- Dark mode support via system preference
+
+**Debug Dashboard**
+- Optional [Fedify Debugger](https://github.com/fedify-dev/debugger) integration
+- Password-protected dashboard at `{mountPath}/__debug__/`
+- OpenTelemetry tracing for federation activity
+- Real-time activity inspection
+
 **Admin UI**
 - Dashboard with follower/following counts and recent activity
 - Profile editor (name, bio, avatar, header, profile links with rel="me" verification)
@@ -45,6 +56,7 @@ ActivityPub federation endpoint for [Indiekit](https://getindiekit.com). Makes y
 ## Requirements
 
 - [Indiekit](https://getindiekit.com) v1.0.0-beta.25+
+- [Fedify](https://fedify.dev) 2.0+ (bundled as dependency)
 - Node.js >= 22
 - MongoDB (used by Indiekit)
 - Redis (recommended for production delivery queue; in-process queue available for development)
@@ -95,6 +107,9 @@ export default {
 | `actorType` | string | `"Person"` | Actor type: `Person`, `Service`, `Organization`, or `Group` |
 | `logLevel` | string | `"warning"` | Fedify log level: `"debug"`, `"info"`, `"warning"`, `"error"`, `"fatal"` |
 | `timelineRetention` | number | `1000` | Maximum timeline items to keep (0 = unlimited) |
+| `notificationRetentionDays` | number | `30` | Days to keep notifications (0 = forever) |
+| `debugDashboard` | boolean | `false` | Enable Fedify debug dashboard at `{mountPath}/__debug__/` |
+| `debugPassword` | string | `""` | Password for the debug dashboard (required if dashboard enabled) |
 
 ### Redis (Recommended for Production)
 
@@ -216,6 +231,8 @@ All admin pages are behind IndieAuth authentication:
 | Pinned Posts | `/activitypub/admin/featured` | Pin/unpin posts to your featured collection |
 | Featured Tags | `/activitypub/admin/tags` | Add/remove featured hashtags |
 | Migration | `/activitypub/admin/migrate` | Mastodon import wizard |
+| Public Profile | `/activitypub/users/{handle}` | Public-facing profile page (no auth) |
+| Debug Dashboard | `/activitypub/__debug__/` | Fedify debugger (password-protected, if enabled) |
 
 ## MongoDB Collections
 
