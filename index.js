@@ -59,6 +59,7 @@ import {
 } from "./lib/controllers/featured-tags.js";
 import { resolveController } from "./lib/controllers/resolve.js";
 import { publicProfileController } from "./lib/controllers/public-profile.js";
+import { noteObjectController } from "./lib/controllers/note-object.js";
 import {
   refollowPauseController,
   refollowResumeController,
@@ -160,6 +161,10 @@ export default class ActivityPubEndpoint {
       if (req.path.startsWith("/admin")) return next();
       return self._fedifyMiddleware(req, res, next);
     });
+
+    // Serve stored quick reply Notes as JSON-LD so remote servers can
+    // dereference the Note ID during Create activity verification.
+    router.get("/quick-replies/:id", noteObjectController(self));
 
     // HTML fallback for actor URL — serve a public profile page.
     // Fedify only serves JSON-LD; browsers get 406 and fall through here.
@@ -835,6 +840,7 @@ export default class ActivityPubEndpoint {
     Indiekit.addCollection("ap_muted");
     Indiekit.addCollection("ap_blocked");
     Indiekit.addCollection("ap_interactions");
+    Indiekit.addCollection("ap_notes");
 
     // Store collection references (posts resolved lazily)
     const indiekitCollections = Indiekit.collections;
@@ -853,6 +859,7 @@ export default class ActivityPubEndpoint {
       ap_muted: indiekitCollections.get("ap_muted"),
       ap_blocked: indiekitCollections.get("ap_blocked"),
       ap_interactions: indiekitCollections.get("ap_interactions"),
+      ap_notes: indiekitCollections.get("ap_notes"),
       get posts() {
         return indiekitCollections.get("posts");
       },
