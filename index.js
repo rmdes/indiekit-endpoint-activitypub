@@ -86,6 +86,8 @@ const defaults = {
   logLevel: "warning",
   timelineRetention: 1000,
   notificationRetentionDays: 30,
+  debugDashboard: false,
+  debugPassword: "",
 };
 
 export default class ActivityPubEndpoint {
@@ -505,7 +507,7 @@ export default class ActivityPubEndpoint {
     }
 
     try {
-      const { Follow } = await import("@fedify/fedify");
+      const { Follow } = await import("@fedify/fedify/vocab");
       const handle = this.options.actor.handle;
       const ctx = this._federation.createContext(
         new URL(this._publicationUrl),
@@ -607,7 +609,7 @@ export default class ActivityPubEndpoint {
     }
 
     try {
-      const { Follow, Undo } = await import("@fedify/fedify");
+      const { Follow, Undo } = await import("@fedify/fedify/vocab");
       const handle = this.options.actor.handle;
       const ctx = this._federation.createContext(
         new URL(this._publicationUrl),
@@ -692,7 +694,7 @@ export default class ActivityPubEndpoint {
     if (!this._federation) return;
 
     try {
-      const { Update } = await import("@fedify/fedify");
+      const { Update } = await import("@fedify/fedify/vocab");
       const handle = this.options.actor.handle;
       const ctx = this._federation.createContext(
         new URL(this._publicationUrl),
@@ -967,6 +969,8 @@ export default class ActivityPubEndpoint {
       parallelWorkers: this.options.parallelWorkers,
       actorType: this.options.actorType,
       logLevel: this.options.logLevel,
+      debugDashboard: this.options.debugDashboard,
+      debugPassword: this.options.debugPassword,
     });
 
     this._federation = federation;
