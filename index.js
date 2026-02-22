@@ -158,6 +158,12 @@ export default class ActivityPubEndpoint {
       return self._fedifyMiddleware(req, res, next);
     });
 
+    // HTML fallback for actor URL — redirect browsers to the site homepage.
+    // Fedify only serves JSON-LD; browsers get 406 and fall through here.
+    router.get("/users/:identifier", (req, res) => {
+      res.redirect(self._publicationUrl || "/");
+    });
+
     // Catch-all for federation paths that Fedify didn't handle (e.g. GET
     // on inbox). Without this, they fall through to Indiekit's auth
     // middleware and redirect to the login page.
@@ -678,6 +684,10 @@ export default class ActivityPubEndpoint {
    * Send an Update(Person) activity to all followers so remote servers
    * re-fetch the actor object (picking up profile changes, new featured
    * collections, attachments, etc.).
+   *
+   * Delivery is batched to avoid a thundering herd: hundreds of remote
+   * servers simultaneously re-fetching the actor, featured posts, and
+   * featured tags after receiving the Update all at once.
    */
   async broadcastActorUpdate() {
     if (!this._federation) return;
@@ -709,21 +719,80 @@ export default class ActivityPubEndpoint {
         object: actor,
       });
 
-      await ctx.sendActivity(
-        { identifier: handle },
-        "followers",
-        update,
-        { preferSharedInbox: true },
+      // Fetch followers and deduplicate by shared inbox so each remote
+      // server only gets one delivery (same as preferSharedInbox but
+      // gives us control over batching).
+      const followers = await this._collections.ap_followers
+        .find({})
+        .project({ actorUrl: 1, inbox: 1, sharedInbox: 1 })
+        .toArray();
+
+      // Group by shared inbox (or direct inbox if none)
+      const inboxMap = new Map();
+      for (const f of followers) {
+        const key = f.sharedInbox || f.inbox;
+        if (key && !inboxMap.has(key)) {
+          inboxMap.set(key, f);
+        }
+      }
+
+      const uniqueRecipients = [...inboxMap.values()];
+      const BATCH_SIZE = 25;
+      const BATCH_DELAY_MS = 5000;
+      let delivered = 0;
+      let failed = 0;
+
+      console.info(
+        `[ActivityPub] Broadcasting Update(Person) to ${uniqueRecipients.length} ` +
+          `unique inboxes (${followers.length} followers) in batches of ${BATCH_SIZE}`,
       );
 
-      console.info("[ActivityPub] Sent Update(Person) to followers");
+      for (let i = 0; i < uniqueRecipients.length; i += BATCH_SIZE) {
+        const batch = uniqueRecipients.slice(i, i + BATCH_SIZE);
+
+        // Build Fedify-compatible Recipient objects:
+        // extractInboxes() reads: recipient.id, recipient.inboxId,
+        // recipient.endpoints?.sharedInbox
+        const recipients = batch.map((f) => ({
+          id: new URL(f.actorUrl),
+          inboxId: new URL(f.inbox || f.sharedInbox),
+          endpoints: f.sharedInbox
+            ? { sharedInbox: new URL(f.sharedInbox) }
+            : undefined,
+        }));
+
+        try {
+          await ctx.sendActivity(
+            { identifier: handle },
+            recipients,
+            update,
+            { preferSharedInbox: true },
+          );
+          delivered += batch.length;
+        } catch (error) {
+          failed += batch.length;
+          console.warn(
+            `[ActivityPub] Batch ${Math.floor(i / BATCH_SIZE) + 1} failed: ${error.message}`,
+          );
+        }
+
+        // Stagger batches so remote servers don't all re-fetch at once
+        if (i + BATCH_SIZE < uniqueRecipients.length) {
+          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+        }
+      }
+
+      console.info(
+        `[ActivityPub] Update(Person) broadcast complete: ` +
+          `${delivered} delivered, ${failed} failed`,
+      );
 
       await logActivity(this._collections.ap_activities, {
         direction: "outbound",
         type: "Update",
         actorUrl: this._publicationUrl,
         objectUrl: this._getActorUrl(),
-        summary: "Sent Update(Person) to followers",
+        summary: `Sent Update(Person) to ${delivered}/${uniqueRecipients.length} inboxes`,
       }).catch(() => {});
     } catch (error) {
       console.error(
