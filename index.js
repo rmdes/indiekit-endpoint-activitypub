@@ -480,7 +480,7 @@ export default class ActivityPubEndpoint {
             type: typeName,
             actorUrl: self._publicationUrl,
             objectUrl: properties.url,
-            targetUrl: replyToActor?.url || undefined,
+            targetUrl: properties["in-reply-to"] || undefined,
             summary: `Sent ${typeName} for ${properties.url} to ${followerCount} followers${replyNote}`,
           });
 
