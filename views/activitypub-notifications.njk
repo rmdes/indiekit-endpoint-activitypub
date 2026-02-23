@@ -4,31 +4,57 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block readercontent %}
-  {% if items.length > 0 %}
-    <div class="ap-notifications__toolbar">
-      {% if unreadCount > 0 %}
-        <form method="post" action="{{ mountPath }}/admin/reader/notifications/mark-read">
-          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-          <button type="submit" class="ap-notifications__btn">{{ __("activitypub.notifications.markAllRead") }}</button>
-        </form>
-      {% endif %}
-      <form method="post" action="{{ mountPath }}/admin/reader/notifications/clear"
-            onsubmit="return confirm('{{ __("activitypub.notifications.clearConfirm") }}')">
-        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-        <button type="submit" class="ap-notifications__btn ap-notifications__btn--danger">{{ __("activitypub.notifications.clearAll") }}</button>
-      </form>
-    </div>
+  {# Tab navigation #}
+  {% set notifBase = mountPath + "/admin/reader/notifications" %}
+  <nav class="ap-tabs">
+    <a href="{{ notifBase }}?tab=reply" class="ap-tab{% if tab == 'reply' %} ap-tab--active{% endif %}">
+      {{ __("activitypub.notifications.tabs.replies") }}
+      {% if tabCounts.reply %}<span class="ap-tab__count">{{ tabCounts.reply }}</span>{% endif %}
+    </a>
+    <a href="{{ notifBase }}?tab=like" class="ap-tab{% if tab == 'like' %} ap-tab--active{% endif %}">
+      {{ __("activitypub.notifications.tabs.likes") }}
+      {% if tabCounts.like %}<span class="ap-tab__count">{{ tabCounts.like }}</span>{% endif %}
+    </a>
+    <a href="{{ notifBase }}?tab=boost" class="ap-tab{% if tab == 'boost' %} ap-tab--active{% endif %}">
+      {{ __("activitypub.notifications.tabs.boosts") }}
+      {% if tabCounts.boost %}<span class="ap-tab__count">{{ tabCounts.boost }}</span>{% endif %}
+    </a>
+    <a href="{{ notifBase }}?tab=follow" class="ap-tab{% if tab == 'follow' %} ap-tab--active{% endif %}">
+      {{ __("activitypub.notifications.tabs.follows") }}
+      {% if tabCounts.follow %}<span class="ap-tab__count">{{ tabCounts.follow }}</span>{% endif %}
+    </a>
+    <a href="{{ notifBase }}?tab=all" class="ap-tab{% if tab == 'all' %} ap-tab--active{% endif %}">
+      {{ __("activitypub.notifications.tabs.all") }}
+      {% if tabCounts.all %}<span class="ap-tab__count">{{ tabCounts.all }}</span>{% endif %}
+    </a>
+  </nav>
 
+  {# Toolbar — mark read + clear all #}
+  <div class="ap-notifications__toolbar">
+    {% if unreadCount > 0 %}
+      <form method="post" action="{{ notifBase }}/mark-read">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <button type="submit" class="ap-notifications__btn">{{ __("activitypub.notifications.markAllRead") }}</button>
+      </form>
+    {% endif %}
+    <form method="post" action="{{ notifBase }}/clear"
+          onsubmit="return confirm('{{ __("activitypub.notifications.clearConfirm") }}')">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+      <button type="submit" class="ap-notifications__btn ap-notifications__btn--danger">{{ __("activitypub.notifications.clearAll") }}</button>
+    </form>
+  </div>
+
+  {% if items.length > 0 %}
     <div class="ap-timeline">
       {% for item in items %}
         {% include "partials/ap-notification-card.njk" %}
       {% endfor %}
     </div>
 
-    {# Pagination #}
+    {# Pagination — preserve active tab #}
     {% if before %}
       <nav class="ap-pagination">
-        <a href="?before={{ before }}" class="ap-pagination__next">
+        <a href="?tab={{ tab }}&before={{ before }}" class="ap-pagination__next">
           {{ __("activitypub.reader.pagination.older") }}
         </a>
       </nav>

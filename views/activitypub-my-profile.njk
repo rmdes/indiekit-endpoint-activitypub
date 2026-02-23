@@ -1,0 +1,85 @@
+{% extends "layouts/ap-reader.njk" %}
+
+{% from "prose/macro.njk" import prose with context %}
+
+{% block readercontent %}
+  {# Profile header #}
+  <div class="ap-my-profile">
+    {% if profile.image %}
+      <div class="ap-my-profile__header">
+        <img src="{{ profile.image }}" alt="" class="ap-my-profile__header-img" loading="lazy" crossorigin="anonymous">
+      </div>
+    {% endif %}
+
+    <div class="ap-my-profile__info">
+      <div class="ap-my-profile__avatar-wrap">
+        {% if profile.icon %}
+          <img src="{{ profile.icon }}" alt="{{ profile.name }}" class="ap-my-profile__avatar" loading="lazy" crossorigin="anonymous">
+        {% else %}
+          <span class="ap-my-profile__avatar ap-my-profile__avatar--placeholder">{{ profile.name[0] | upper if profile.name else "?" }}</span>
+        {% endif %}
+      </div>
+
+      <div class="ap-my-profile__meta">
+        <h2 class="ap-my-profile__name">{{ profile.name or handle }}</h2>
+        <div class="ap-my-profile__handle">{{ fullHandle }}</div>
+        {% if profile.summary %}
+          <div class="ap-my-profile__bio">{{ profile.summary | safe }}</div>
+        {% endif %}
+      </div>
+
+      <div class="ap-my-profile__stats">
+        <a href="{{ mountPath }}/admin/followers" class="ap-my-profile__stat">
+          <strong>{{ followerCount }}</strong> {{ __("activitypub.followers") }}
+        </a>
+        <a href="{{ mountPath }}/admin/following" class="ap-my-profile__stat">
+          <strong>{{ followingCount }}</strong> {{ __("activitypub.following") }}
+        </a>
+        <span class="ap-my-profile__stat">
+          <strong>{{ postCount }}</strong> {{ __("activitypub.myProfile.posts") }}
+        </span>
+      </div>
+
+      <a href="{{ mountPath }}/admin/profile" class="ap-my-profile__edit">
+        {{ __("activitypub.myProfile.editProfile") }}
+      </a>
+    </div>
+  </div>
+
+  {# Tab navigation #}
+  {% set profileBase = mountPath + "/admin/my-profile" %}
+  <nav class="ap-tabs" role="tablist">
+    <a href="{{ profileBase }}?tab=posts" class="ap-tab{% if tab == 'posts' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.myProfile.tabs.posts") }}
+    </a>
+    <a href="{{ profileBase }}?tab=replies" class="ap-tab{% if tab == 'replies' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.myProfile.tabs.replies") }}
+    </a>
+    <a href="{{ profileBase }}?tab=likes" class="ap-tab{% if tab == 'likes' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.myProfile.tabs.likes") }}
+    </a>
+    <a href="{{ profileBase }}?tab=boosts" class="ap-tab{% if tab == 'boosts' %} ap-tab--active{% endif %}" role="tab">
+      {{ __("activitypub.myProfile.tabs.boosts") }}
+    </a>
+  </nav>
+
+  {# Activity items #}
+  {% if items.length > 0 %}
+    <div class="ap-timeline" data-mount-path="{{ mountPath }}">
+      {% for item in items %}
+        {% include "partials/ap-item-card.njk" %}
+      {% endfor %}
+    </div>
+
+    {# Pagination — preserve active tab #}
+    {% if before %}
+      <nav class="ap-pagination">
+        <a href="?tab={{ tab }}&before={{ before }}" class="ap-pagination__next">
+          {{ __("activitypub.reader.pagination.older") }}
+        </a>
+      </nav>
+    {% endif %}
+  {% else %}
+    {{ prose({ text: __("activitypub.myProfile.empty") }) }}
+  {% endif %}
+{% endblock %}

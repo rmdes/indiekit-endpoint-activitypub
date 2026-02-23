@@ -157,7 +157,16 @@
       "markAllRead": "Mark all read",
       "clearAll": "Clear all",
       "clearConfirm": "Delete all notifications? This cannot be undone.",
-      "dismiss": "Dismiss"
+      "dismiss": "Dismiss",
+      "viewThread": "View thread",
+      "tabs": {
+        "all": "All",
+        "replies": "Replies",
+        "likes": "Likes",
+        "boosts": "Boosts",
+        "follows": "Follows"
+      },
+      "emptyTab": "No %s notifications yet."
     },
     "reader": {
       "title": "Reader",
@@ -212,6 +221,18 @@
       },
       "linkPreview": {
         "label": "Link preview"
+      }
+    },
+    "myProfile": {
+      "title": "My Profile",
+      "posts": "posts",
+      "editProfile": "Edit profile",
+      "empty": "Nothing here yet.",
+      "tabs": {
+        "posts": "Posts",
+        "replies": "Replies",
+        "likes": "Likes",
+        "boosts": "Boosts"
       }
     }
   }

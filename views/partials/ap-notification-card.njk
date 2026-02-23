@@ -53,6 +53,17 @@
         {{ item.content.text | truncate(200) }}
       </div>
     {% endif %}
+
+    {% if item.type == "reply" or item.type == "mention" %}
+      <div class="ap-notification__actions">
+        <a href="{{ mountPath }}/admin/reader/compose?replyTo={{ item.uid | urlencode }}" class="ap-notification__reply-btn" title="{{ __('activitypub.reader.actions.reply') }}">
+          ↩ {{ __("activitypub.reader.actions.reply") }}
+        </a>
+        <a href="{{ mountPath }}/admin/reader/post?url={{ item.uid | urlencode }}" class="ap-notification__thread-btn" title="{{ __('activitypub.reader.post.title') }}">
+          💬 {{ __("activitypub.notifications.viewThread") }}
+        </a>
+      </div>
+    {% endif %}
   </div>
 
   {# Timestamp #}

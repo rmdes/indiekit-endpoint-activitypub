@@ -87,6 +87,20 @@
   font-weight: 600;
 }
 
+.ap-tab__count {
+  background: var(--color-offset-variant);
+  border-radius: var(--border-radius-large);
+  font-size: var(--font-size-xs);
+  font-weight: 600;
+  margin-left: var(--space-xs);
+  padding: 1px 6px;
+}
+
+.ap-tab--active .ap-tab__count {
+  background: var(--color-primary);
+  color: var(--color-on-primary, var(--color-neutral99));
+}
+
 /* ==========================================================================
    Timeline Layout
    ========================================================================== */
@@ -267,6 +281,16 @@
   color: var(--color-on-offset);
   flex-shrink: 0;
   font-size: var(--font-size-xs);
+}
+
+.ap-card__timestamp-link {
+  color: inherit;
+  text-decoration: none;
+}
+
+.ap-card__timestamp-link:hover {
+  text-decoration: underline;
+  color: var(--color-primary);
 }
 
 /* ==========================================================================
@@ -931,6 +955,30 @@
   color: var(--color-red45);
 }
 
+.ap-notification__actions {
+  display: flex;
+  gap: var(--space-s);
+  margin-top: var(--space-s);
+}
+
+.ap-notification__reply-btn,
+.ap-notification__thread-btn {
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  padding: var(--space-xs) var(--space-s);
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.ap-notification__reply-btn:hover,
+.ap-notification__thread-btn:hover {
+  background: var(--color-offset-variant);
+  border-color: var(--color-outline-variant);
+  color: var(--color-on-background);
+}
+
 /* ==========================================================================
    Remote Profile
    ========================================================================== */
@@ -1072,6 +1120,127 @@
 }
 
 /* ==========================================================================
+   My Profile — Admin Profile Header
+   ========================================================================== */
+
+.ap-my-profile {
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  margin-bottom: var(--space-m);
+  overflow: hidden;
+}
+
+.ap-my-profile__header {
+  height: 160px;
+  overflow: hidden;
+}
+
+.ap-my-profile__header-img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.ap-my-profile__info {
+  padding: var(--space-m);
+}
+
+.ap-my-profile__avatar-wrap {
+  margin-bottom: var(--space-s);
+  margin-top: -40px;
+}
+
+.ap-my-profile__avatar {
+  border: 3px solid var(--color-background);
+  border-radius: 50%;
+  height: 72px;
+  object-fit: cover;
+  width: 72px;
+}
+
+.ap-my-profile__avatar--placeholder {
+  align-items: center;
+  background: var(--color-offset-variant);
+  color: var(--color-on-offset);
+  display: flex;
+  font-size: 1.8em;
+  font-weight: 600;
+  justify-content: center;
+}
+
+.ap-my-profile__name {
+  font-size: var(--font-size-xl);
+  margin-bottom: 0;
+}
+
+.ap-my-profile__handle {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  margin-bottom: var(--space-s);
+}
+
+.ap-my-profile__bio {
+  line-height: var(--line-height-prose);
+  margin-bottom: var(--space-s);
+}
+
+.ap-my-profile__bio a {
+  color: var(--color-primary);
+}
+
+/* Override upstream .mention { display: grid } for bio content */
+.ap-my-profile__bio .h-card { display: inline; }
+.ap-my-profile__bio .h-card a,
+.ap-my-profile__bio a.u-url.mention { display: inline; white-space: nowrap; }
+.ap-my-profile__bio .h-card a span,
+.ap-my-profile__bio a.u-url.mention span { display: inline; }
+.ap-my-profile__bio a.mention.hashtag { display: inline; white-space: nowrap; }
+.ap-my-profile__bio a.mention.hashtag span { display: inline; }
+.ap-my-profile__bio .invisible { display: none; }
+.ap-my-profile__bio .ellipsis::after { content: "…"; }
+
+.ap-my-profile__stats {
+  display: flex;
+  gap: var(--space-m);
+  margin-bottom: var(--space-s);
+}
+
+.ap-my-profile__stat {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  text-decoration: none;
+}
+
+.ap-my-profile__stat:hover {
+  color: var(--color-on-background);
+}
+
+.ap-my-profile__stat strong {
+  color: var(--color-on-background);
+  font-weight: 600;
+}
+
+.ap-my-profile__edit {
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-background);
+  display: inline-block;
+  font-size: var(--font-size-s);
+  padding: var(--space-xs) var(--space-m);
+  text-decoration: none;
+}
+
+.ap-my-profile__edit:hover {
+  background: var(--color-offset);
+  border-color: var(--color-outline-variant);
+}
+
+/* When no header image, don't offset avatar */
+.ap-my-profile__info:first-child .ap-my-profile__avatar-wrap {
+  margin-top: 0;
+}
+
+/* ==========================================================================
    Moderation
    ========================================================================== */
 
@@ -1183,4 +1352,72 @@
     font-size: 0.75rem;
     padding: var(--space-xs);
   }
+}
+
+/* ==========================================================================
+   Post Detail View — Thread Layout
+   ========================================================================== */
+
+.ap-post-detail__back {
+  margin-bottom: var(--space-m);
+}
+
+.ap-post-detail__back-link {
+  color: var(--color-primary);
+  font-size: var(--font-size-s);
+  text-decoration: none;
+}
+
+.ap-post-detail__back-link:hover {
+  text-decoration: underline;
+}
+
+.ap-post-detail__not-found {
+  background: var(--color-offset);
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-offset);
+  padding: var(--space-l);
+  text-align: center;
+}
+
+.ap-post-detail__section-title {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  font-weight: 600;
+  margin: var(--space-m) 0 var(--space-s);
+  padding-bottom: var(--space-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+/* Parent posts — indented with left border to show thread chain */
+.ap-post-detail__parents {
+  border-left: 3px solid var(--color-outline);
+  margin-bottom: var(--space-s);
+  padding-left: var(--space-m);
+}
+
+.ap-post-detail__parent-item .ap-card {
+  opacity: 0.85;
+}
+
+/* Main post — highlighted */
+.ap-post-detail__main {
+  margin-bottom: var(--space-m);
+}
+
+.ap-post-detail__main .ap-card {
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 1px var(--color-primary);
+}
+
+/* Replies — indented from the other side */
+.ap-post-detail__replies {
+  margin-left: var(--space-l);
+}
+
+.ap-post-detail__reply-item {
+  border-left: 2px solid var(--color-outline);
+  padding-left: var(--space-m);
+  margin-bottom: var(--space-xs);
 }

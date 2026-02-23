@@ -59,6 +59,7 @@ import {
 } from "./lib/controllers/featured-tags.js";
 import { resolveController } from "./lib/controllers/resolve.js";
 import { publicProfileController } from "./lib/controllers/public-profile.js";
+import { myProfileController } from "./lib/controllers/my-profile.js";
 import { noteObjectController } from "./lib/controllers/note-object.js";
 import {
   refollowPauseController,
@@ -125,6 +126,11 @@ export default class ActivityPubEndpoint {
       {
         href: `${this.options.mountPath}/admin/reader/moderation`,
         text: "activitypub.moderation.title",
+        requiresDatabase: true,
+      },
+      {
+        href: `${this.options.mountPath}/admin/my-profile`,
+        text: "activitypub.myProfile.title",
         requiresDatabase: true,
       },
     ];
@@ -237,6 +243,7 @@ export default class ActivityPubEndpoint {
     router.post("/admin/tags/remove", featuredTagsRemoveController(mp, this));
     router.get("/admin/profile", profileGetController(mp));
     router.post("/admin/profile", profilePostController(mp, this));
+    router.get("/admin/my-profile", myProfileController(this));
     router.get("/admin/migrate", migrateGetController(mp, this.options));
     router.post("/admin/migrate", migratePostController(mp, this.options));
     router.post(
@@ -925,6 +932,10 @@ export default class ActivityPubEndpoint {
     );
     this._collections.ap_notifications.createIndex(
       { read: 1 },
+      { background: true },
+    );
+    this._collections.ap_notifications.createIndex(
+      { type: 1, published: -1 },
       { background: true },
     );
 
