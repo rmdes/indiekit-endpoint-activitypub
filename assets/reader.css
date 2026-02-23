@@ -1320,6 +1320,46 @@
   background: var(--color-offset-variant);
 }
 
+.ap-moderation__add-btn:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+.ap-moderation__error {
+  color: var(--color-error);
+  font-size: var(--font-size-s);
+  margin-top: var(--space-xs);
+}
+
+.ap-moderation__empty {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  font-style: italic;
+}
+
+.ap-moderation__hint {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  margin-bottom: var(--space-s);
+}
+
+.ap-moderation__filter-toggle {
+  display: flex;
+  gap: var(--space-m);
+}
+
+.ap-moderation__radio {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.ap-moderation__radio input {
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+
 /* ==========================================================================
    Responsive
    ========================================================================== */

@@ -130,7 +130,14 @@
       "keywordPlaceholder": "Enter keyword or phrase…",
       "addKeyword": "Add",
       "muteActor": "Mute",
-      "blockActor": "Block"
+      "blockActor": "Block",
+      "filterModeTitle": "Filter mode",
+      "filterModeHint": "Choose how muted content is handled in your timeline. Blocked accounts are always hidden.",
+      "filterModeHide": "Hide — remove from timeline",
+      "filterModeWarn": "Warn — show behind content warning",
+      "cwMutedAccount": "Muted account",
+      "cwMutedKeyword": "Muted keyword:",
+      "cwFiltered": "Filtered content"
     },
     "compose": {
       "title": "Compose reply",

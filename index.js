@@ -34,6 +34,7 @@ import {
   blockController,
   unblockController,
   moderationController,
+  filterModeController,
 } from "./lib/controllers/moderation.js";
 import { followersController } from "./lib/controllers/followers.js";
 import { followingController } from "./lib/controllers/following.js";
@@ -228,6 +229,7 @@ export default class ActivityPubEndpoint {
     router.post("/admin/reader/follow", followController(mp, this));
     router.post("/admin/reader/unfollow", unfollowController(mp, this));
     router.get("/admin/reader/moderation", moderationController(mp));
+    router.post("/admin/reader/moderation/filter-mode", filterModeController(mp));
     router.post("/admin/reader/mute", muteController(mp, this));
     router.post("/admin/reader/unmute", unmuteController(mp, this));
     router.post("/admin/reader/block", blockController(mp, this));
@@ -948,6 +950,10 @@ export default class ActivityPubEndpoint {
       );
     }
 
+    // Drop non-sparse indexes if they exist (created by earlier versions),
+    // then recreate with sparse:true so multiple null values are allowed.
+    try { await this._collections.ap_muted.dropIndex("url_1"); } catch {}
+    try { await this._collections.ap_muted.dropIndex("keyword_1"); } catch {}
     this._collections.ap_muted.createIndex(
       { url: 1 },
       { unique: true, sparse: true, background: true },

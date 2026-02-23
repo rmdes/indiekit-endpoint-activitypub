@@ -6,7 +6,23 @@
 {% set hasCardMedia = (item.photo and item.photo.length > 0) or (item.video and item.video.length > 0) or (item.audio and item.audio.length > 0) %}
 {% if hasCardContent or hasCardTitle or hasCardMedia %}
 
-<article class="ap-card{% if item.type %} ap-card--{{ item.type }}{% endif %}{% if item.inReplyTo %} ap-card--reply{% endif %}">
+<article class="ap-card{% if item.type %} ap-card--{{ item.type }}{% endif %}{% if item.inReplyTo %} ap-card--reply{% endif %}{% if item._moderated %} ap-card--moderated{% endif %}">
+  {# Moderation content warning wrapper #}
+  {% if item._moderated %}
+    {% if item._moderationReason == "muted_account" %}
+      {% set modLabel = __("activitypub.moderation.cwMutedAccount") %}
+    {% elif item._moderationReason == "muted_keyword" and item._moderationKeyword %}
+      {% set modLabel = __("activitypub.moderation.cwMutedKeyword") + ' "' + item._moderationKeyword + '"' %}
+    {% else %}
+      {% set modLabel = __("activitypub.moderation.cwFiltered") %}
+    {% endif %}
+    <div class="ap-card__moderation-cw" x-data="{ shown: false }">
+      <button @click="shown = !shown" class="ap-card__moderation-toggle">
+        <span x-show="!shown">🛡️ {{ modLabel }} — {{ __("activitypub.reader.showContent") }}</span>
+        <span x-show="shown" x-cloak>🛡️ {{ modLabel }} — {{ __("activitypub.reader.hideContent") }}</span>
+      </button>
+      <div x-show="shown" x-cloak>
+  {% endif %}
   {# Boost header if this is a boosted post #}
   {% if item.type == "boost" and item.boostedBy %}
     <div class="ap-card__boost">
@@ -184,6 +200,11 @@
     </a>
     <div x-show="error" x-text="error" class="ap-card__action-error" x-transition></div>
   </footer>
+  {# Close moderation content warning wrapper #}
+  {% if item._moderated %}
+      </div>{# /x-show="shown" #}
+    </div>{# /ap-card__moderation-cw #}
+  {% endif %}
 </article>
 
 {% endif %}{# end hasCardContent/hasCardTitle/hasCardMedia guard #}

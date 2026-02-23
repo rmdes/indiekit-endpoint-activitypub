@@ -4,25 +4,40 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block readercontent %}
+  <div x-data="moderationPage()" data-mount-path="{{ mountPath }}" data-csrf-token="{{ csrfToken }}">
+
+  {# Filter mode toggle #}
+  <section class="ap-moderation__section">
+    <h2>{{ __("activitypub.moderation.filterModeTitle") }}</h2>
+    <p class="ap-moderation__hint">{{ __("activitypub.moderation.filterModeHint") }}</p>
+    <div class="ap-moderation__filter-toggle">
+      <label class="ap-moderation__radio">
+        <input type="radio" name="filterMode" value="hide"
+          {% if filterMode == "hide" %}checked{% endif %}
+          @change="setFilterMode('hide')">
+        <span>{{ __("activitypub.moderation.filterModeHide") }}</span>
+      </label>
+      <label class="ap-moderation__radio">
+        <input type="radio" name="filterMode" value="warn"
+          {% if filterMode == "warn" %}checked{% endif %}
+          @change="setFilterMode('warn')">
+        <span>{{ __("activitypub.moderation.filterModeWarn") }}</span>
+      </label>
+    </div>
+  </section>
+
   {# Blocked actors #}
   <section class="ap-moderation__section">
     <h2>{{ __("activitypub.moderation.blockedTitle") }}</h2>
     {% if blocked.length > 0 %}
       <ul class="ap-moderation__list">
         {% for entry in blocked %}
-          <li class="ap-moderation__entry"
-            x-data="{ removing: false }">
+          <li class="ap-moderation__entry" data-url="{{ entry.url }}">
             <a href="{{ entry.url }}">{{ entry.url }}</a>
             <button class="ap-moderation__remove"
-              :disabled="removing"
-              @click="
-                removing = true;
-                fetch('{{ mountPath }}/admin/reader/unblock', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrfToken }}' },
-                  body: JSON.stringify({ url: '{{ entry.url }}' })
-                }).then(r => r.json()).then(d => { if (d.success) $el.closest('li').remove(); else removing = false; }).catch(() => removing = false);
-              ">{{ __("activitypub.moderation.unblock") }}</button>
+              @click="removeEntry($el, 'unblock', { url: $el.closest('li').dataset.url })">
+              {{ __("activitypub.moderation.unblock") }}
+            </button>
           </li>
         {% endfor %}
       </ul>
@@ -38,19 +53,12 @@
     {% if mutedActors | length > 0 %}
       <ul class="ap-moderation__list">
         {% for entry in mutedActors %}
-          <li class="ap-moderation__entry"
-            x-data="{ removing: false }">
+          <li class="ap-moderation__entry" data-url="{{ entry.url }}">
             <a href="{{ entry.url }}">{{ entry.url }}</a>
             <button class="ap-moderation__remove"
-              :disabled="removing"
-              @click="
-                removing = true;
-                fetch('{{ mountPath }}/admin/reader/unmute', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrfToken }}' },
-                  body: JSON.stringify({ url: '{{ entry.url }}' })
-                }).then(r => r.json()).then(d => { if (d.success) $el.closest('li').remove(); else removing = false; }).catch(() => removing = false);
-              ">{{ __("activitypub.moderation.unmute") }}</button>
+              @click="removeEntry($el, 'unmute', { url: $el.closest('li').dataset.url })">
+              {{ __("activitypub.moderation.unmute") }}
+            </button>
           </li>
         {% endfor %}
       </ul>
@@ -62,51 +70,132 @@
   {# Muted keywords #}
   <section class="ap-moderation__section">
     <h2>{{ __("activitypub.moderation.mutedKeywordsTitle") }}</h2>
-    {% set mutedKeywords = muted | selectattr("keyword") %}
-    {% if mutedKeywords | length > 0 %}
-      <ul class="ap-moderation__list">
-        {% for entry in mutedKeywords %}
-          <li class="ap-moderation__entry"
-            x-data="{ removing: false }">
-            <code>{{ entry.keyword }}</code>
-            <button class="ap-moderation__remove"
-              :disabled="removing"
-              @click="
-                removing = true;
-                fetch('{{ mountPath }}/admin/reader/unmute', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrfToken }}' },
-                  body: JSON.stringify({ keyword: '{{ entry.keyword }}' })
-                }).then(r => r.json()).then(d => { if (d.success) $el.closest('li').remove(); else removing = false; }).catch(() => removing = false);
-              ">{{ __("activitypub.moderation.unmute") }}</button>
-          </li>
-        {% endfor %}
-      </ul>
-    {% else %}
-      {{ prose({ text: __("activitypub.moderation.noMutedKeywords") }) }}
+    <ul class="ap-moderation__list" x-ref="keywordList">
+      {% set mutedKeywords = muted | selectattr("keyword") %}
+      {% for entry in mutedKeywords %}
+        <li class="ap-moderation__entry" data-keyword="{{ entry.keyword }}">
+          <code x-text="$el.closest('li').dataset.keyword">{{ entry.keyword }}</code>
+          <button class="ap-moderation__remove"
+            @click="removeEntry($el, 'unmute', { keyword: $el.closest('li').dataset.keyword })">
+            {{ __("activitypub.moderation.unmute") }}
+          </button>
+        </li>
+      {% endfor %}
+    </ul>
+    {% if not (mutedKeywords | length) %}
+      <p class="ap-moderation__empty" x-ref="keywordEmpty">{{ __("activitypub.moderation.noMutedKeywords") }}</p>
     {% endif %}
   </section>
 
   {# Add keyword mute form #}
   <section class="ap-moderation__section">
     <h2>{{ __("activitypub.moderation.addKeywordTitle") }}</h2>
-    <form class="ap-moderation__add-form"
-      x-data="{ keyword: '', submitting: false }"
-      @submit.prevent="
-        if (!keyword.trim()) return;
-        submitting = true;
-        fetch('{{ mountPath }}/admin/reader/mute', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': '{{ csrfToken }}' },
-          body: JSON.stringify({ keyword: keyword.trim() })
-        }).then(r => r.json()).then(d => { if (d.success) location.reload(); submitting = false; }).catch(() => submitting = false);
-      ">
-      <input type="text" x-model="keyword"
+    <form class="ap-moderation__add-form" @submit.prevent="addKeyword()">
+      <input type="text" x-model="newKeyword"
         placeholder="{{ __('activitypub.moderation.keywordPlaceholder') }}"
-        class="ap-moderation__input">
+        class="ap-moderation__input"
+        x-ref="keywordInput">
       <button type="submit" :disabled="submitting" class="ap-moderation__add-btn">
         {{ __("activitypub.moderation.addKeyword") }}
       </button>
     </form>
+    <p x-show="error" x-text="error" class="ap-moderation__error" x-cloak></p>
   </section>
+
+  </div>
+
+  <script>
+    document.addEventListener('alpine:init', () => {
+      Alpine.data('moderationPage', () => ({
+        newKeyword: '',
+        submitting: false,
+        error: '',
+
+        get mountPath() { return this.$root.dataset.mountPath; },
+        get csrfToken() { return this.$root.dataset.csrfToken; },
+
+        async addKeyword() {
+          const kw = this.newKeyword.trim();
+          if (!kw) return;
+          this.submitting = true;
+          this.error = '';
+          try {
+            const res = await fetch(this.mountPath + '/admin/reader/mute', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': this.csrfToken,
+              },
+              body: JSON.stringify({ keyword: kw }),
+            });
+            const data = await res.json();
+            if (data.success) {
+              // Add to list inline — no reload needed
+              const list = this.$refs.keywordList;
+              const li = document.createElement('li');
+              li.className = 'ap-moderation__entry';
+              li.dataset.keyword = kw;
+              const code = document.createElement('code');
+              code.textContent = kw;
+              const btn = document.createElement('button');
+              btn.className = 'ap-moderation__remove';
+              btn.textContent = 'Unmute';
+              btn.addEventListener('click', () => {
+                this.removeEntry(btn, 'unmute', { keyword: kw });
+              });
+              li.append(code, btn);
+              list.appendChild(li);
+              if (this.$refs.keywordEmpty) this.$refs.keywordEmpty.remove();
+              this.newKeyword = '';
+              this.$refs.keywordInput.focus();
+            } else {
+              this.error = data.error || 'Failed to add keyword';
+            }
+          } catch (e) {
+            this.error = 'Request failed';
+          }
+          this.submitting = false;
+        },
+
+        async removeEntry(el, action, payload) {
+          const li = el.closest('li');
+          if (!li) return;
+          el.disabled = true;
+          try {
+            const res = await fetch(this.mountPath + '/admin/reader/' + action, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': this.csrfToken,
+              },
+              body: JSON.stringify(payload),
+            });
+            const data = await res.json();
+            if (data.success) {
+              li.remove();
+            } else {
+              el.disabled = false;
+            }
+          } catch {
+            el.disabled = false;
+          }
+        },
+
+        async setFilterMode(mode) {
+          try {
+            await fetch(this.mountPath + '/admin/reader/moderation/filter-mode', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'X-CSRF-Token': this.csrfToken,
+              },
+              body: JSON.stringify({ mode }),
+            });
+          } catch {
+            // Silently fail — radio will visually stay on selected
+          }
+        },
+      }));
+    });
+  </script>
 {% endblock %}
