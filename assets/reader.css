@@ -993,6 +993,40 @@
   color: var(--color-primary);
 }
 
+/* Override upstream .mention { display: grid } for bio content */
+.ap-profile__bio .h-card {
+  display: inline;
+}
+
+.ap-profile__bio .h-card a,
+.ap-profile__bio a.u-url.mention {
+  display: inline;
+  white-space: nowrap;
+}
+
+.ap-profile__bio .h-card a span,
+.ap-profile__bio a.u-url.mention span {
+  display: inline;
+}
+
+.ap-profile__bio a.mention.hashtag {
+  display: inline;
+  white-space: nowrap;
+}
+
+.ap-profile__bio a.mention.hashtag span {
+  display: inline;
+}
+
+/* Mastodon invisible/ellipsis spans for long URLs in bios */
+.ap-profile__bio .invisible {
+  display: none;
+}
+
+.ap-profile__bio .ellipsis::after {
+  content: "…";
+}
+
 .ap-profile__actions {
   display: flex;
   flex-wrap: wrap;

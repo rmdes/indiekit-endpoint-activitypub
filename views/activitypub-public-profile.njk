@@ -177,6 +177,17 @@
     .ap-pub__bio p { margin: 0 0 var(--space-s); }
     .ap-pub__bio p:last-child { margin-bottom: 0; }
 
+    /* Mastodon mention/hashtag formatting */
+    .ap-pub__bio .h-card { display: inline; }
+    .ap-pub__bio .h-card a,
+    .ap-pub__bio a.u-url.mention { display: inline; white-space: nowrap; }
+    .ap-pub__bio .h-card a span,
+    .ap-pub__bio a.u-url.mention span { display: inline; }
+    .ap-pub__bio a.mention.hashtag { display: inline; white-space: nowrap; }
+    .ap-pub__bio a.mention.hashtag span { display: inline; }
+    .ap-pub__bio .invisible { display: none; }
+    .ap-pub__bio .ellipsis::after { content: "…"; }
+
     /* ================================================================
        Profile fields
        ================================================================ */
