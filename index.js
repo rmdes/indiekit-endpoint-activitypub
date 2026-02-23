@@ -952,8 +952,8 @@ export default class ActivityPubEndpoint {
 
     // Drop non-sparse indexes if they exist (created by earlier versions),
     // then recreate with sparse:true so multiple null values are allowed.
-    try { await this._collections.ap_muted.dropIndex("url_1"); } catch {}
-    try { await this._collections.ap_muted.dropIndex("keyword_1"); } catch {}
+    this._collections.ap_muted.dropIndex("url_1").catch(() => {});
+    this._collections.ap_muted.dropIndex("keyword_1").catch(() => {});
     this._collections.ap_muted.createIndex(
       { url: 1 },
       { unique: true, sparse: true, background: true },
