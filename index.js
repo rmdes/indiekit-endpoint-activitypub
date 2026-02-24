@@ -60,6 +60,7 @@ import {
 } from "./lib/controllers/featured-tags.js";
 import { resolveController } from "./lib/controllers/resolve.js";
 import { publicProfileController } from "./lib/controllers/public-profile.js";
+import { authorizeInteractionController } from "./lib/controllers/authorize-interaction.js";
 import { myProfileController } from "./lib/controllers/my-profile.js";
 import { noteObjectController } from "./lib/controllers/note-object.js";
 import {
@@ -172,6 +173,10 @@ export default class ActivityPubEndpoint {
     // Serve stored quick reply Notes as JSON-LD so remote servers can
     // dereference the Note ID during Create activity verification.
     router.get("/quick-replies/:id", noteObjectController(self));
+
+    // Authorize interaction — remote follow / subscribe endpoint.
+    // Remote servers redirect users here via the WebFinger subscribe template.
+    router.get("/authorize_interaction", authorizeInteractionController(self));
 
     // HTML fallback for actor URL — serve a public profile page.
     // Fedify only serves JSON-LD; browsers get 406 and fall through here.

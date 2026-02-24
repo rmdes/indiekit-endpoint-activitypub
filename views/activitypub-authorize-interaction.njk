@@ -1,0 +1,10 @@
+{% extends "document.njk" %}
+
+{% from "prose/macro.njk" import prose with context %}
+
+{% block content %}
+  {% if error %}
+    {{ prose({ text: error }) }}
+  {% endif %}
+  <p><a href="{{ mountPath }}/">Return to dashboard</a></p>
+{% endblock %}
