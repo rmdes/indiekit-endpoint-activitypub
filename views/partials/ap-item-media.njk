@@ -1,20 +1,36 @@
 {# Media attachments partial — included from ap-item-card.njk #}
 
-{# Photo gallery #}
+{# Photo gallery with lightbox #}
 {% if item.photo and item.photo.length > 0 %}
   {% set displayCount = [item.photo.length, 4] | min %}
   {% set extraCount = item.photo.length - 4 %}
-  <div class="ap-card__gallery ap-card__gallery--{{ displayCount }}">
+  {% set totalPhotos = item.photo.length %}
+  <div x-data="{ lightbox: false, idx: 0 }" class="ap-card__gallery ap-card__gallery--{{ displayCount }}">
     {% for photoUrl in item.photo %}
       {% if loop.index0 < 4 %}
-        <a href="{{ photoUrl }}" target="_blank" rel="noopener" class="ap-card__gallery-link{% if loop.index0 == 3 and extraCount > 0 %} ap-card__gallery-link--more{% endif %}">
+        <button type="button" @click="idx = {{ loop.index0 }}; lightbox = true" class="ap-card__gallery-link{% if loop.index0 == 3 and extraCount > 0 %} ap-card__gallery-link--more{% endif %}">
           <img src="{{ photoUrl }}" alt="" loading="lazy">
           {% if loop.index0 == 3 and extraCount > 0 %}
             <span class="ap-card__gallery-more">+{{ extraCount }}</span>
           {% endif %}
-        </a>
+        </button>
       {% endif %}
     {% endfor %}
+
+    {# Lightbox modal — teleported to body to prevent overflow clipping #}
+    <template x-teleport="body">
+      <div x-show="lightbox" x-cloak @keydown.escape.window="lightbox = false" @click.self="lightbox = false" class="ap-lightbox" role="dialog" aria-modal="true">
+        <button type="button" @click="lightbox = false" class="ap-lightbox__close" aria-label="Close">&times;</button>
+        {% if totalPhotos > 1 %}
+          <button type="button" @click="idx = (idx - 1 + {{ totalPhotos }}) % {{ totalPhotos }}" class="ap-lightbox__prev" aria-label="Previous image">&lsaquo;</button>
+        {% endif %}
+        <img :src="[{% for p in item.photo %}'{{ p }}'{% if not loop.last %},{% endif %}{% endfor %}][idx]" class="ap-lightbox__img" alt="">
+        {% if totalPhotos > 1 %}
+          <button type="button" @click="idx = (idx + 1) % {{ totalPhotos }}" class="ap-lightbox__next" aria-label="Next image">&rsaquo;</button>
+          <div class="ap-lightbox__counter" x-text="(idx + 1) + ' / ' + {{ totalPhotos }}"></div>
+        {% endif %}
+      </div>
+    </template>
   </div>
 {% endif %}
 

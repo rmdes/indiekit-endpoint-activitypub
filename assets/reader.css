@@ -457,7 +457,12 @@
 }
 
 .ap-card__gallery-link {
+  appearance: none;
+  background: none;
+  border: 0;
+  cursor: pointer;
   display: block;
+  padding: 0;
   position: relative;
 }
 
@@ -520,6 +525,83 @@
 .ap-card__gallery--4 {
   grid-template-columns: 1fr 1fr;
   grid-template-rows: 1fr 1fr;
+}
+
+/* ==========================================================================
+   Photo Lightbox
+   ========================================================================== */
+
+[x-cloak] {
+  display: none !important;
+}
+
+.ap-lightbox {
+  align-items: center;
+  background: rgba(0, 0, 0, 0.92);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  position: fixed;
+  z-index: 9999;
+}
+
+.ap-lightbox__img {
+  max-height: 90vh;
+  max-width: 95vw;
+  object-fit: contain;
+}
+
+.ap-lightbox__close {
+  background: none;
+  border: 0;
+  color: white;
+  cursor: pointer;
+  font-size: 2rem;
+  line-height: 1;
+  padding: var(--space-s);
+  position: absolute;
+  right: var(--space-m);
+  top: var(--space-m);
+}
+
+.ap-lightbox__close:hover {
+  opacity: 0.7;
+}
+
+.ap-lightbox__prev,
+.ap-lightbox__next {
+  background: none;
+  border: 0;
+  color: white;
+  cursor: pointer;
+  font-size: 3rem;
+  line-height: 1;
+  padding: var(--space-m);
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+.ap-lightbox__prev {
+  left: var(--space-s);
+}
+
+.ap-lightbox__next {
+  right: var(--space-s);
+}
+
+.ap-lightbox__prev:hover,
+.ap-lightbox__next:hover {
+  opacity: 0.7;
+}
+
+.ap-lightbox__counter {
+  bottom: var(--space-m);
+  color: white;
+  font-size: var(--font-size-s);
+  left: 50%;
+  position: absolute;
+  transform: translateX(-50%);
 }
 
 /* ==========================================================================
