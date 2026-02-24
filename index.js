@@ -875,107 +875,115 @@ export default class ActivityPubEndpoint {
       _publicationUrl: this._publicationUrl,
     };
 
-    // TTL index for activity cleanup (MongoDB handles expiry automatically)
-    const retentionDays = this.options.activityRetentionDays;
-    if (retentionDays > 0) {
+    // Create indexes — wrapped in try-catch because collection references
+    // may be undefined if MongoDB hasn't finished connecting yet.
+    // Indexes are idempotent; they'll be created on next successful startup.
+    try {
+      // TTL index for activity cleanup (MongoDB handles expiry automatically)
+      const retentionDays = this.options.activityRetentionDays;
+      if (retentionDays > 0) {
+        this._collections.ap_activities.createIndex(
+          { receivedAt: 1 },
+          { expireAfterSeconds: retentionDays * 86_400 },
+        );
+      }
+
+      // Performance indexes for inbox handlers and batch refollow
+      this._collections.ap_followers.createIndex(
+        { actorUrl: 1 },
+        { unique: true, background: true },
+      );
+      this._collections.ap_following.createIndex(
+        { actorUrl: 1 },
+        { unique: true, background: true },
+      );
+      this._collections.ap_following.createIndex(
+        { source: 1 },
+        { background: true },
+      );
       this._collections.ap_activities.createIndex(
-        { receivedAt: 1 },
-        { expireAfterSeconds: retentionDays * 86_400 },
+        { objectUrl: 1 },
+        { background: true },
       );
-    }
+      this._collections.ap_activities.createIndex(
+        { type: 1, actorUrl: 1, objectUrl: 1 },
+        { background: true },
+      );
 
-    // Performance indexes for inbox handlers and batch refollow
-    this._collections.ap_followers.createIndex(
-      { actorUrl: 1 },
-      { unique: true, background: true },
-    );
-    this._collections.ap_following.createIndex(
-      { actorUrl: 1 },
-      { unique: true, background: true },
-    );
-    this._collections.ap_following.createIndex(
-      { source: 1 },
-      { background: true },
-    );
-    this._collections.ap_activities.createIndex(
-      { objectUrl: 1 },
-      { background: true },
-    );
-    this._collections.ap_activities.createIndex(
-      { type: 1, actorUrl: 1, objectUrl: 1 },
-      { background: true },
-    );
+      // Reader indexes (timeline, notifications, moderation, interactions)
+      this._collections.ap_timeline.createIndex(
+        { uid: 1 },
+        { unique: true, background: true },
+      );
+      this._collections.ap_timeline.createIndex(
+        { published: -1 },
+        { background: true },
+      );
+      this._collections.ap_timeline.createIndex(
+        { "author.url": 1 },
+        { background: true },
+      );
+      this._collections.ap_timeline.createIndex(
+        { type: 1, published: -1 },
+        { background: true },
+      );
 
-    // Reader indexes (timeline, notifications, moderation, interactions)
-    this._collections.ap_timeline.createIndex(
-      { uid: 1 },
-      { unique: true, background: true },
-    );
-    this._collections.ap_timeline.createIndex(
-      { published: -1 },
-      { background: true },
-    );
-    this._collections.ap_timeline.createIndex(
-      { "author.url": 1 },
-      { background: true },
-    );
-    this._collections.ap_timeline.createIndex(
-      { type: 1, published: -1 },
-      { background: true },
-    );
-
-    this._collections.ap_notifications.createIndex(
-      { uid: 1 },
-      { unique: true, background: true },
-    );
-    this._collections.ap_notifications.createIndex(
-      { published: -1 },
-      { background: true },
-    );
-    this._collections.ap_notifications.createIndex(
-      { read: 1 },
-      { background: true },
-    );
-    this._collections.ap_notifications.createIndex(
-      { type: 1, published: -1 },
-      { background: true },
-    );
-
-    // TTL index for notification cleanup
-    const notifRetention = this.options.notificationRetentionDays;
-    if (notifRetention > 0) {
       this._collections.ap_notifications.createIndex(
-        { createdAt: 1 },
-        { expireAfterSeconds: notifRetention * 86_400 },
+        { uid: 1 },
+        { unique: true, background: true },
       );
+      this._collections.ap_notifications.createIndex(
+        { published: -1 },
+        { background: true },
+      );
+      this._collections.ap_notifications.createIndex(
+        { read: 1 },
+        { background: true },
+      );
+      this._collections.ap_notifications.createIndex(
+        { type: 1, published: -1 },
+        { background: true },
+      );
+
+      // TTL index for notification cleanup
+      const notifRetention = this.options.notificationRetentionDays;
+      if (notifRetention > 0) {
+        this._collections.ap_notifications.createIndex(
+          { createdAt: 1 },
+          { expireAfterSeconds: notifRetention * 86_400 },
+        );
+      }
+
+      // Drop non-sparse indexes if they exist (created by earlier versions),
+      // then recreate with sparse:true so multiple null values are allowed.
+      this._collections.ap_muted.dropIndex("url_1").catch(() => {});
+      this._collections.ap_muted.dropIndex("keyword_1").catch(() => {});
+      this._collections.ap_muted.createIndex(
+        { url: 1 },
+        { unique: true, sparse: true, background: true },
+      );
+      this._collections.ap_muted.createIndex(
+        { keyword: 1 },
+        { unique: true, sparse: true, background: true },
+      );
+
+      this._collections.ap_blocked.createIndex(
+        { url: 1 },
+        { unique: true, background: true },
+      );
+
+      this._collections.ap_interactions.createIndex(
+        { objectUrl: 1, type: 1 },
+        { unique: true, background: true },
+      );
+      this._collections.ap_interactions.createIndex(
+        { type: 1 },
+        { background: true },
+      );
+    } catch {
+      // Index creation failed — collections not yet available.
+      // Indexes already exist from previous startups; non-fatal.
     }
-
-    // Drop non-sparse indexes if they exist (created by earlier versions),
-    // then recreate with sparse:true so multiple null values are allowed.
-    this._collections.ap_muted.dropIndex("url_1").catch(() => {});
-    this._collections.ap_muted.dropIndex("keyword_1").catch(() => {});
-    this._collections.ap_muted.createIndex(
-      { url: 1 },
-      { unique: true, sparse: true, background: true },
-    );
-    this._collections.ap_muted.createIndex(
-      { keyword: 1 },
-      { unique: true, sparse: true, background: true },
-    );
-
-    this._collections.ap_blocked.createIndex(
-      { url: 1 },
-      { unique: true, background: true },
-    );
-
-    this._collections.ap_interactions.createIndex(
-      { objectUrl: 1, type: 1 },
-      { unique: true, background: true },
-    );
-    this._collections.ap_interactions.createIndex(
-      { type: 1 },
-      { background: true },
-    );
 
     // Seed actor profile from config on first run
     this._seedProfile().catch((error) => {
