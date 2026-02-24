@@ -2,7 +2,7 @@
 
 {# Photo gallery with lightbox #}
 {% if item.photo and item.photo.length > 0 %}
-  {% set displayCount = [item.photo.length, 4] | min %}
+  {% set displayCount = item.photo.length if item.photo.length < 4 else 4 %}
   {% set extraCount = item.photo.length - 4 %}
   {% set totalPhotos = item.photo.length %}
   <div x-data="{ lightbox: false, idx: 0 }" class="ap-card__gallery ap-card__gallery--{{ displayCount }}">
