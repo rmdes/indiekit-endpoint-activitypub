@@ -26,6 +26,23 @@
         {% if profile.summary %}
           <div class="ap-my-profile__bio">{{ profile.summary | safe }}</div>
         {% endif %}
+
+        {% if profile.attachments and profile.attachments.length > 0 %}
+          <dl class="ap-my-profile__fields">
+            {% for field in profile.attachments %}
+              <div class="ap-my-profile__field">
+                <dt class="ap-my-profile__field-name">{{ field.name }}</dt>
+                <dd class="ap-my-profile__field-value">
+                  {% if field.value and (field.value.startsWith("http://") or field.value.startsWith("https://")) %}
+                    <a href="{{ field.value }}" rel="me noopener" target="_blank">{{ field.value | replace("https://", "") | replace("http://", "") }}</a>
+                  {% else %}
+                    {{ field.value }}
+                  {% endif %}
+                </dd>
+              </div>
+            {% endfor %}
+          </dl>
+        {% endif %}
       </div>
 
       <div class="ap-my-profile__stats">

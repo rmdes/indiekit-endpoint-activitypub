@@ -480,7 +480,7 @@
             <dt class="ap-pub__field-name">{{ field.name }}</dt>
             <dd class="ap-pub__field-value">
               {% if field.value and (field.value.startsWith("http://") or field.value.startsWith("https://")) %}
-                <a href="{{ field.value }}" rel="noopener nofollow" target="_blank">{{ field.value | replace("https://", "") | replace("http://", "") }}</a>
+                <a href="{{ field.value }}" rel="me noopener" target="_blank">{{ field.value | replace("https://", "") | replace("http://", "") }}</a>
               {% else %}
                 {{ field.value }}
               {% endif %}

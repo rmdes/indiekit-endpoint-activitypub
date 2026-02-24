@@ -1281,6 +1281,45 @@
 .ap-my-profile__bio .invisible { display: none; }
 .ap-my-profile__bio .ellipsis::after { content: "…"; }
 
+.ap-my-profile__fields {
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  margin: var(--space-s) 0;
+  overflow: hidden;
+}
+
+.ap-my-profile__field {
+  border-bottom: var(--border-width-thin) solid var(--color-outline);
+  display: grid;
+  grid-template-columns: 120px 1fr;
+}
+
+.ap-my-profile__field:last-child {
+  border-bottom: 0;
+}
+
+.ap-my-profile__field-name {
+  background: var(--color-offset);
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  font-weight: 600;
+  padding: var(--space-xs) var(--space-s);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.ap-my-profile__field-value {
+  font-size: var(--font-size-s);
+  overflow: hidden;
+  padding: var(--space-xs) var(--space-s);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ap-my-profile__field-value a {
+  color: var(--color-primary);
+}
+
 .ap-my-profile__stats {
   display: flex;
   gap: var(--space-m);
