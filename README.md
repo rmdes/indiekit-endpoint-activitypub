@@ -268,11 +268,66 @@ The JF2-to-ActivityStreams converter handles these Indiekit post types:
 
 Categories are converted to `Hashtag` tags. Bookmarks include a bookmark emoji and link.
 
+## Fedify Workarounds and Implementation Notes
+
+This plugin uses [Fedify](https://fedify.dev) 2.0 but carries several workarounds for issues in Fedify or its Express integration. These are documented here so they can be revisited when Fedify upgrades.
+
+### Custom Express Bridge (instead of `@fedify/express`)
+
+**File:** `lib/federation-bridge.js`
+**Upstream issue:** `@fedify/express` uses `req.url` ([source](https://github.com/fedify-dev/fedify/blob/main/packages/express/src/index.ts), line 73), not `req.originalUrl`.
+
+Indiekit plugins mount at a sub-path (e.g. `/activitypub`). Express strips the mount prefix from `req.url`, so Fedify's URI template matching breaks — WebFinger, actor endpoints, and inbox all return 404. The custom bridge uses `req.originalUrl` to preserve the full path.
+
+The bridge also reconstructs POST bodies that Express's body parser has already consumed (`req.readable === false`). Without this, Fedify handlers like the `@fedify/debugger` login form receive empty bodies.
+
+**Revisit when:** `@fedify/express` switches to `req.originalUrl`, or provides an option to pass a custom URL builder.
+
+### JSON-LD Attachment Array Compaction
+
+**File:** `lib/federation-bridge.js` (in `sendFedifyResponse()`)
+**Upstream issue:** JSON-LD compaction collapses single-element arrays to plain objects.
+
+Mastodon's `update_account_fields` checks `attachment.is_a?(Array)` and silently skips profile links (PropertyValues) when `attachment` is a plain object instead of an array. The bridge intercepts actor JSON-LD responses and forces `attachment` to always be an array.
+
+**Revisit when:** Fedify adds an option to preserve arrays during JSON-LD serialization, or Mastodon fixes their array check.
+
+### `.authorize()` Not Chained on Actor Dispatcher
+
+**File:** `lib/federation-setup.js` (line ~254)
+**Upstream issue:** No authenticated document loading for outgoing key fetches during signature verification.
+
+Fedify's `.authorize()` predicate triggers HTTP Signature verification on every GET to the actor endpoint. When a remote server that requires Authorized Fetch (e.g. kobolds.online) requests our actor, Fedify tries to fetch *their* public key to verify the signature. Those servers return 401 on unsigned GETs, causing uncaught `FetchError` and 500 responses.
+
+This means we do **not** enforce Authorized Fetch on our actor endpoint. Any server can read our actor document without signing the request.
+
+**Revisit when:** Fedify supports using the instance actor's keys for outgoing document fetches during signature verification (i.e. authenticated document loading in the verification path, not just in inbox handlers).
+
+### `importSpkiPem()` / `importPkcs8Pem()` — Local PEM Import
+
+**File:** `lib/federation-setup.js` (lines ~784–816)
+**Upstream change:** Fedify 1.x exported `importSpki()` for loading PEM public keys. This was removed in Fedify 2.0.
+
+The plugin carries local `importSpkiPem()` and `importPkcs8Pem()` functions that use the Web Crypto API directly (`crypto.subtle.importKey`) to load legacy RSA key pairs stored in MongoDB from the Fedify 1.x era. New key pairs are generated using Fedify 2.0's `generateCryptoKeyPair()` and stored as JWK, so these functions only matter for existing installations that migrated from Fedify 1.x.
+
+**Revisit when:** All existing installations have been migrated to JWK-stored keys, or Fedify re-exports a PEM import utility.
+
+### Authenticated Document Loader for Inbox Handlers
+
+**File:** `lib/inbox-listeners.js`
+**Upstream behavior:** Fedify's personal inbox handlers do not automatically use authenticated (signed) HTTP fetches.
+
+All `.getActor()`, `.getObject()`, and `.getTarget()` calls in inbox handlers must explicitly pass an authenticated `DocumentLoader` obtained via `ctx.getDocumentLoader({ identifier: handle })`. Without this, fetches to Authorized Fetch (Secure Mode) servers like hachyderm.io fail with 401, causing timeline items to show "Unknown" authors and missing content.
+
+This is not a bug — Fedify requires explicit opt-in for signed fetches. But it's a pattern that every inbox handler must follow, and forgetting it silently degrades functionality.
+
+**Revisit when:** Fedify provides an option to default to authenticated fetches in inbox handler context, or adds a middleware layer that handles this automatically.
+
 ## Known Limitations
 
 - **No automated tests** — Manual testing against real fediverse servers
 - **Single actor** — One fediverse identity per Indiekit instance
-- **No Authorized Fetch enforcement** — Disabled due to Fedify's current limitation with authenticated outgoing fetches (causes infinite loops with servers that require it)
+- **No Authorized Fetch enforcement** — `.authorize()` disabled on actor dispatcher (see workarounds above)
 - **No image upload in reader** — Compose form is text-only
 - **In-process queue without Redis** — Activities may be lost on restart
 
