@@ -77,7 +77,7 @@ Reader:   Followed account posts → Create inbox → timeline-store → ap_time
 
 ### 1. Express ↔ Fedify Bridge (CUSTOM — NOT @fedify/express)
 
-We **cannot** use `@fedify/express`'s `integrateFederation()` because Indiekit mounts plugins at sub-paths. Express strips the mount prefix from `req.url`, breaking Fedify's URI template matching. Instead, `federation-bridge.js` uses `req.originalUrl` to build the full URL.
+We **cannot** use `@fedify/express`'s `integrateFederation()` because Indiekit mounts plugins at sub-paths. Express strips the mount prefix from `req.url`, breaking Fedify's URI template matching. **Verified in Fedify 2.0**: `@fedify/express` still uses `req.url` (not `req.originalUrl`), so the custom bridge remains necessary. Instead, `federation-bridge.js` uses `req.originalUrl` to build the full URL.
 
 The bridge also **reconstructs POST bodies** from `req.body` when Express body parser has already consumed the request stream (checked via `req.readable === false`). Without this, POST handlers in Fedify (e.g. the `@fedify/debugger` login form) receive empty bodies and fail with `"Response body object should not be disturbed or locked"`.
 
@@ -91,14 +91,19 @@ The `contentNegotiationRoutes` router is mounted at `/` (root). It MUST only pas
 
 In `routesPublic`, the middleware skips paths starting with `/admin`. Without this, Fedify would intercept admin UI requests and return 404/406 responses instead of letting Express serve the authenticated pages.
 
-### 4. Use .objectId/.actorId — NOT .getObject()/.getActor() in Inbox Handlers
+### 4. Authenticated Document Loader for Inbox Handlers
 
-Fedify's `.getObject()` and `.getActor()` trigger HTTP fetches to remote servers. This fails silently or retries ~10 times when:
-- Remote server has **Authorized Fetch** enabled (returns 401)
-- Server is down or unreachable
-- Object has been deleted
+All `.getObject()` / `.getActor()` / `.getTarget()` calls in inbox handlers **must** pass an authenticated `DocumentLoader` to sign outbound fetches. Without this, requests to Authorized Fetch (Secure Mode) servers like hachyderm.io fail with 401.
 
-**Always prefer** `.objectId?.href` and `.actorId?.href` (zero network requests) for Like, Announce, Undo, and Delete handlers. Only use `.getObject()` / `.getActor()` when you need the full object, and **always wrap in try-catch**.
+```javascript
+const authLoader = await ctx.getDocumentLoader({ identifier: handle });
+const actor = await activity.getActor({ documentLoader: authLoader });
+const object = await activity.getObject({ documentLoader: authLoader });
+```
+
+The `getAuthLoader` helper in `inbox-listeners.js` wraps this pattern. The authenticated loader is also passed through to `extractObjectData()` and `extractActorInfo()` in `timeline-store.js` so that `.getAttributedTo()`, `.getIcon()`, `.getTags()`, and `.getAttachments()` also sign their fetches.
+
+**Still prefer** `.objectId?.href` and `.actorId?.href` (zero network requests) when you only need the URL — e.g. Like, Delete, and the filter check in Announce. Only use the fetching getters when you need the full object, and **always wrap in try-catch**.
 
 ### 5. Accept(Follow) Matching — Don't Check Inner Object Type
 
@@ -118,9 +123,11 @@ Template names resolve across ALL registered plugin view directories. If two plu
 
 Express 5 removed the `"back"` magic keyword from `response.redirect()`. It's treated as a literal URL, causing 404s at paths like `/admin/featured/back`. Always use explicit redirect paths.
 
-### 9. Fedify Endpoints Type Bug (Workaround)
+### 9. Attachment Array Workaround (Mastodon Compatibility)
 
-Fedify serializes `endpoints` with `"type": "as:Endpoints"` which is not a real ActivityStreams type. `sendFedifyResponse()` in `federation-bridge.js` strips this from actor JSON responses. Remove the workaround when [fedify#576](https://github.com/fedify-dev/fedify/issues/576) is fixed upstream.
+JSON-LD compaction collapses single-element arrays to plain objects. Mastodon's `update_account_fields` checks `attachment.is_a?(Array)` and silently skips if it's not an array. `sendFedifyResponse()` in `federation-bridge.js` forces `attachment` to always be an array.
+
+**Note:** The old `endpoints.type` bug ([fedify#576](https://github.com/fedify-dev/fedify/issues/576)) was fixed in Fedify 2.0 — that workaround has been removed.
 
 ### 10. Profile Links — Express qs Body Parser Key Mismatch
 
