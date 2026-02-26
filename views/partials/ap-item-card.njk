@@ -113,12 +113,27 @@
     {% include "partials/ap-item-media.njk" %}
   {% endif %}
 
-  {# Tags/categories #}
-  {% if item.category and item.category.length > 0 %}
+  {# Mentions and hashtags #}
+  {% set hasMentions = item.mentions and item.mentions.length > 0 %}
+  {% set hasHashtags = item.category and item.category.length > 0 %}
+  {% if hasMentions or hasHashtags %}
     <div class="ap-card__tags">
-      {% for tag in item.category %}
-        <a href="?tag={{ tag }}" class="ap-card__tag">#{{ tag }}</a>
-      {% endfor %}
+      {# Mentions — render with @ prefix, link to profile view when URL available #}
+      {% if hasMentions %}
+        {% for mention in item.mentions %}
+          {% if mention.url %}
+            <a href="{{ mountPath }}/admin/reader/profile?url={{ mention.url | urlencode }}" class="ap-card__mention">@{{ mention.name }}</a>
+          {% else %}
+            <span class="ap-card__mention ap-card__mention--legacy">@{{ mention.name }}</span>
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+      {# Hashtags — render with # prefix, link to tag timeline #}
+      {% if hasHashtags %}
+        {% for tag in item.category %}
+          <a href="{{ mountPath }}/admin/reader/tag?tag={{ tag | urlencode }}" class="ap-card__tag">#{{ tag }}</a>
+        {% endfor %}
+      {% endif %}
     </div>
   {% endif %}
 

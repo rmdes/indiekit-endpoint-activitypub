@@ -655,6 +655,25 @@
   color: var(--color-on-background);
 }
 
+.ap-card__mention {
+  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  border-radius: var(--border-radius-large);
+  color: var(--color-accent);
+  font-size: var(--font-size-s);
+  padding: 2px var(--space-xs);
+  text-decoration: none;
+}
+
+.ap-card__mention:hover {
+  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
+  color: var(--color-accent);
+}
+
+.ap-card__mention--legacy {
+  cursor: default;
+  opacity: 0.7;
+}
+
 /* ==========================================================================
    Interaction Buttons
    ========================================================================== */
@@ -733,6 +752,55 @@
 
 .ap-pagination a:hover {
   text-decoration: underline;
+}
+
+/* Hidden once Alpine is active (JS replaces with infinite scroll) */
+.ap-pagination--js-hidden {
+  /* Shown by default for no-JS fallback — Alpine hides via display:none */
+}
+
+/* ==========================================================================
+   Infinite Scroll / Load More
+   ========================================================================== */
+
+.ap-load-more {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-s);
+  padding: var(--space-m) 0;
+}
+
+.ap-load-more__sentinel {
+  height: 1px;
+  width: 100%;
+}
+
+.ap-load-more__btn {
+  background: var(--color-offset);
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-background);
+  cursor: pointer;
+  font-size: var(--font-size-s);
+  padding: var(--space-xs) var(--space-m);
+  transition: background 0.15s;
+}
+
+.ap-load-more__btn:hover:not(:disabled) {
+  background: var(--color-offset-variant);
+}
+
+.ap-load-more__btn:disabled {
+  cursor: wait;
+  opacity: 0.6;
+}
+
+.ap-load-more__done {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  margin: 0;
+  text-align: center;
 }
 
 /* ==========================================================================
@@ -1572,6 +1640,204 @@
   box-shadow: 0 0 0 1px var(--color-primary);
 }
 
+/* ==========================================================================
+   Tag Timeline Header
+   ========================================================================== */
+
+.ap-tag-header {
+  align-items: flex-start;
+  background: var(--color-offset);
+  border-bottom: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  display: flex;
+  gap: var(--space-m);
+  justify-content: space-between;
+  margin-bottom: var(--space-m);
+  padding: var(--space-m);
+}
+
+.ap-tag-header__title {
+  font-size: var(--font-size-xl);
+  font-weight: var(--font-weight-bold);
+  margin: 0 0 var(--space-xs);
+}
+
+.ap-tag-header__count {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  margin: 0;
+}
+
+.ap-tag-header__actions {
+  align-items: center;
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-s);
+}
+
+.ap-tag-header__follow-btn {
+  background: var(--color-accent);
+  border: none;
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-accent);
+  cursor: pointer;
+  font-size: var(--font-size-s);
+  padding: var(--space-xs) var(--space-s);
+}
+
+.ap-tag-header__follow-btn:hover {
+  opacity: 0.85;
+}
+
+.ap-tag-header__unfollow-btn {
+  background: transparent;
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-background);
+  cursor: pointer;
+  font-size: var(--font-size-s);
+  padding: var(--space-xs) var(--space-s);
+}
+
+.ap-tag-header__unfollow-btn:hover {
+  border-color: var(--color-on-background);
+}
+
+.ap-tag-header__back {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  text-decoration: none;
+}
+
+.ap-tag-header__back:hover {
+  color: var(--color-on-background);
+  text-decoration: underline;
+}
+
+@media (max-width: 640px) {
+  .ap-tag-header {
+    flex-direction: column;
+    gap: var(--space-s);
+  }
+
+  .ap-tag-header__actions {
+    flex-wrap: wrap;
+  }
+}
+
+/* ==========================================================================
+   Reader Tools Bar (Explore link, etc.)
+   ========================================================================== */
+
+.ap-reader-tools {
+  display: flex;
+  gap: var(--space-s);
+  justify-content: flex-end;
+  margin-bottom: var(--space-s);
+}
+
+.ap-reader-tools__explore {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  text-decoration: none;
+}
+
+.ap-reader-tools__explore:hover {
+  color: var(--color-on-background);
+  text-decoration: underline;
+}
+
+/* ==========================================================================
+   Explore Page
+   ========================================================================== */
+
+.ap-explore-header {
+  margin-bottom: var(--space-m);
+}
+
+.ap-explore-header__title {
+  font-size: var(--font-size-xl);
+  margin: 0 0 var(--space-xs);
+}
+
+.ap-explore-header__desc {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  margin: 0;
+}
+
+.ap-explore-form {
+  background: var(--color-offset);
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  margin-bottom: var(--space-m);
+  padding: var(--space-m);
+}
+
+.ap-explore-form__row {
+  align-items: center;
+  display: flex;
+  gap: var(--space-s);
+  flex-wrap: wrap;
+}
+
+.ap-explore-form__input {
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  flex: 1;
+  font-size: var(--font-size-base);
+  min-width: 0;
+  padding: var(--space-xs) var(--space-s);
+}
+
+.ap-explore-form__scope {
+  display: flex;
+  gap: var(--space-s);
+}
+
+.ap-explore-form__scope-label {
+  align-items: center;
+  cursor: pointer;
+  display: flex;
+  font-size: var(--font-size-s);
+  gap: var(--space-xs);
+}
+
+.ap-explore-form__btn {
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-primary);
+  cursor: pointer;
+  font-size: var(--font-size-s);
+  padding: var(--space-xs) var(--space-m);
+  white-space: nowrap;
+}
+
+.ap-explore-form__btn:hover {
+  opacity: 0.85;
+}
+
+.ap-explore-error {
+  background: color-mix(in srgb, var(--color-red45) 10%, transparent);
+  border: var(--border-width-thin) solid var(--color-red45);
+  border-radius: var(--border-radius-small);
+  color: var(--color-red45);
+  margin-bottom: var(--space-m);
+  padding: var(--space-s) var(--space-m);
+}
+
+@media (max-width: 640px) {
+  .ap-explore-form__row {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .ap-explore-form__btn {
+    width: 100%;
+  }
+}
+
 /* Replies — indented from the other side */
 .ap-post-detail__replies {
   margin-left: var(--space-l);
@@ -1581,4 +1847,20 @@
   border-left: 2px solid var(--color-outline);
   padding-left: var(--space-m);
   margin-bottom: var(--space-xs);
+}
+
+/* Followed tags bar */
+.ap-followed-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-xs) 0;
+  margin-bottom: var(--space-s);
+  font-size: var(--font-size-s);
+}
+
+.ap-followed-tags__label {
+  color: var(--color-on-offset);
+  font-weight: 600;
 }

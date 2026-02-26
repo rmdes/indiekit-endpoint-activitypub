@@ -185,10 +185,6 @@
         "boosts": "Boosts",
         "media": "Media"
       },
-      "pagination": {
-        "newer": "← Newer",
-        "older": "Older →"
-      },
       "empty": "Your timeline is empty. Follow some accounts to see their posts here.",
       "boosted": "boosted",
       "replyingTo": "Replying to",
@@ -228,6 +224,33 @@
       },
       "linkPreview": {
         "label": "Link preview"
+      },
+      "explore": {
+        "title": "Explore",
+        "description": "Browse public timelines from remote Mastodon-compatible instances.",
+        "instancePlaceholder": "Enter an instance hostname, e.g. mastodon.social",
+        "browse": "Browse",
+        "local": "Local",
+        "federated": "Federated",
+        "loadError": "Could not load timeline from this instance. It may be unavailable or not support the Mastodon API.",
+        "timeout": "Request timed out. The instance may be slow or unavailable.",
+        "noResults": "No posts found on this instance's public timeline.",
+        "invalidInstance": "Invalid instance hostname. Please enter a valid domain name."
+      },
+      "tagTimeline": {
+        "postsTagged": "%d posts",
+        "postsTagged_plural": "%d posts",
+        "noPosts": "No posts found with #%s in your timeline.",
+        "followTag": "Follow hashtag",
+        "unfollowTag": "Unfollow hashtag",
+        "following": "Following"
+      },
+      "pagination": {
+        "newer": "← Newer",
+        "older": "Older →",
+        "loadMore": "Load more",
+        "loading": "Loading…",
+        "noMore": "You're all caught up."
       }
     },
     "myProfile": {

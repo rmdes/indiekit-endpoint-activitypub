@@ -1,7 +1,10 @@
 {% extends "document.njk" %}
 
 {% block content %}
-  {# Alpine.js for client-side reactivity (CW toggles, interaction buttons) #}
+  {# Infinite scroll component — must load before Alpine to register via alpine:init #}
+  <script defer src="/assets/@rmdes-indiekit-endpoint-activitypub/reader-infinite-scroll.js"></script>
+
+  {# Alpine.js for client-side reactivity (CW toggles, interaction buttons, infinite scroll) #}
   <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.9/dist/cdn.min.js"></script>
 
   {# Reader stylesheet — loaded in body is fine for modern browsers #}

@@ -59,6 +59,10 @@ import {
   featuredTagsRemoveController,
 } from "./lib/controllers/featured-tags.js";
 import { resolveController } from "./lib/controllers/resolve.js";
+import { tagTimelineController } from "./lib/controllers/tag-timeline.js";
+import { apiTimelineController } from "./lib/controllers/api-timeline.js";
+import { exploreController, exploreApiController } from "./lib/controllers/explore.js";
+import { followTagController, unfollowTagController } from "./lib/controllers/follow-tag.js";
 import { publicProfileController } from "./lib/controllers/public-profile.js";
 import { authorizeInteractionController } from "./lib/controllers/authorize-interaction.js";
 import { myProfileController } from "./lib/controllers/my-profile.js";
@@ -71,6 +75,7 @@ import {
 import { startBatchRefollow } from "./lib/batch-refollow.js";
 import { logActivity } from "./lib/activity-log.js";
 import { scheduleCleanup } from "./lib/timeline-cleanup.js";
+import { runSeparateMentionsMigration } from "./lib/migrations/separate-mentions.js";
 
 const defaults = {
   mountPath: "/activitypub",
@@ -218,6 +223,12 @@ export default class ActivityPubEndpoint {
 
     router.get("/", dashboardController(mp));
     router.get("/admin/reader", readerController(mp));
+    router.get("/admin/reader/tag", tagTimelineController(mp));
+    router.get("/admin/reader/api/timeline", apiTimelineController(mp));
+    router.get("/admin/reader/explore", exploreController(mp));
+    router.get("/admin/reader/api/explore", exploreApiController(mp));
+    router.post("/admin/reader/follow-tag", followTagController(mp));
+    router.post("/admin/reader/unfollow-tag", unfollowTagController(mp));
     router.get("/admin/reader/notifications", notificationsController(mp));
     router.post("/admin/reader/notifications/mark-read", markAllNotificationsReadController(mp));
     router.post("/admin/reader/notifications/clear", clearAllNotificationsController(mp));
@@ -855,6 +866,7 @@ export default class ActivityPubEndpoint {
     Indiekit.addCollection("ap_blocked");
     Indiekit.addCollection("ap_interactions");
     Indiekit.addCollection("ap_notes");
+    Indiekit.addCollection("ap_followed_tags");
 
     // Store collection references (posts resolved lazily)
     const indiekitCollections = Indiekit.collections;
@@ -874,6 +886,7 @@ export default class ActivityPubEndpoint {
       ap_blocked: indiekitCollections.get("ap_blocked"),
       ap_interactions: indiekitCollections.get("ap_interactions"),
       ap_notes: indiekitCollections.get("ap_notes"),
+      ap_followed_tags: indiekitCollections.get("ap_followed_tags"),
       get posts() {
         return indiekitCollections.get("posts");
       },
@@ -985,6 +998,18 @@ export default class ActivityPubEndpoint {
         { type: 1 },
         { background: true },
       );
+
+      // Followed hashtags — unique on tag (case-insensitive via normalization at write time)
+      this._collections.ap_followed_tags.createIndex(
+        { tag: 1 },
+        { unique: true, background: true },
+      );
+
+      // Tag filtering index on timeline
+      this._collections.ap_timeline.createIndex(
+        { category: 1, published: -1 },
+        { background: true },
+      );
     } catch {
       // Index creation failed — collections not yet available.
       // Indexes already exist from previous startups; non-fatal.
@@ -1038,6 +1063,15 @@ export default class ActivityPubEndpoint {
         console.error("[ActivityPub] Batch refollow start failed:", error.message);
       });
     }, 10_000);
+
+    // Run one-time migrations (idempotent — safe to run on every startup)
+    runSeparateMentionsMigration(this._collections).then(({ skipped, updated }) => {
+      if (!skipped) {
+        console.log(`[ActivityPub] Migration separate-mentions: updated ${updated} timeline items`);
+      }
+    }).catch((error) => {
+      console.error("[ActivityPub] Migration separate-mentions failed:", error.message);
+    });
 
     // Schedule timeline retention cleanup (runs on startup + every 24h)
     if (this.options.timelineRetention > 0) {

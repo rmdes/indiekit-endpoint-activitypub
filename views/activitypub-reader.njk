@@ -4,6 +4,23 @@
 {% from "prose/macro.njk" import prose with context %}
 
 {% block readercontent %}
+  {# Explore link #}
+  <div class="ap-reader-tools">
+    <a href="{{ mountPath }}/admin/reader/explore" class="ap-reader-tools__explore">
+      🔭 {{ __("activitypub.reader.explore.title") }}
+    </a>
+  </div>
+
+  {# Followed tags #}
+  {% if followedTags and followedTags.length > 0 %}
+    <div class="ap-followed-tags">
+      <span class="ap-followed-tags__label">{{ __("activitypub.reader.tagTimeline.following") }}:</span>
+      {% for tag in followedTags %}
+        <a href="{{ mountPath }}/admin/reader/tag?tag={{ tag | urlencode }}" class="ap-card__tag">#{{ tag }}</a>
+      {% endfor %}
+    </div>
+  {% endif %}
+
   {# Fediverse lookup #}
   <form action="{{ mountPath }}/admin/reader/resolve" method="get" class="ap-lookup">
     <input type="text" name="q" class="ap-lookup__input"
@@ -36,15 +53,18 @@
 
   {# Timeline items #}
   {% if items.length > 0 %}
-    <div class="ap-timeline" data-mount-path="{{ mountPath }}">
+    <div class="ap-timeline"
+      id="ap-timeline"
+      data-mount-path="{{ mountPath }}"
+      data-before="{{ before if before else '' }}">
       {% for item in items %}
         {% include "partials/ap-item-card.njk" %}
       {% endfor %}
     </div>
 
-    {# Pagination #}
+    {# Pagination (progressive enhancement — visible without JS, hidden when Alpine active) #}
     {% if before or after %}
-      <nav class="ap-pagination">
+      <nav class="ap-pagination ap-pagination--js-hidden" id="ap-reader-pagination">
         {% if after %}
           <a href="?tab={{ tab }}&after={{ after }}" class="ap-pagination__prev">
             {{ __("activitypub.reader.pagination.newer") }}
@@ -56,6 +76,25 @@
           </a>
         {% endif %}
       </nav>
+    {% endif %}
+
+    {# Infinite scroll load-more sentinel #}
+    {% if before %}
+      <div class="ap-load-more"
+        id="ap-load-more"
+        data-before="{{ before }}"
+        data-tab="{{ tab }}"
+        data-tag=""
+        x-data="apInfiniteScroll()"
+        x-init="init()"
+        @ap-append-items.window="appendItems($event.detail)">
+        <div class="ap-load-more__sentinel" x-ref="sentinel"></div>
+        <button class="ap-load-more__btn" @click="loadMore()" :disabled="loading" x-show="!done">
+          <span x-show="!loading">{{ __("activitypub.reader.pagination.loadMore") }}</span>
+          <span x-show="loading">{{ __("activitypub.reader.pagination.loading") }}</span>
+        </button>
+        <p class="ap-load-more__done" x-show="done" x-cloak>{{ __("activitypub.reader.pagination.noMore") }}</p>
+      </div>
     {% endif %}
   {% else %}
     {{ prose({ text: __("activitypub.reader.empty") }) }}

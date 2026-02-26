@@ -1,0 +1,82 @@
+{% extends "layouts/ap-reader.njk" %}
+
+{% from "prose/macro.njk" import prose with context %}
+
+{% block readercontent %}
+  {# Page header #}
+  <header class="ap-explore-header">
+    <h2 class="ap-explore-header__title">{{ __("activitypub.reader.explore.title") }}</h2>
+    <p class="ap-explore-header__desc">{{ __("activitypub.reader.explore.description") }}</p>
+  </header>
+
+  {# Instance form #}
+  <form action="{{ mountPath }}/admin/reader/explore" method="get" class="ap-explore-form">
+    <div class="ap-explore-form__row">
+      <input
+        type="text"
+        name="instance"
+        value="{{ instance }}"
+        class="ap-explore-form__input"
+        placeholder="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
+        aria-label="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
+        autocomplete="off"
+        required>
+      <div class="ap-explore-form__scope">
+        <label class="ap-explore-form__scope-label">
+          <input type="radio" name="scope" value="local"
+            {% if scope == "local" %}checked{% endif %}>
+          {{ __("activitypub.reader.explore.local") }}
+        </label>
+        <label class="ap-explore-form__scope-label">
+          <input type="radio" name="scope" value="federated"
+            {% if scope == "federated" %}checked{% endif %}>
+          {{ __("activitypub.reader.explore.federated") }}
+        </label>
+      </div>
+      <button type="submit" class="ap-explore-form__btn">
+        {{ __("activitypub.reader.explore.browse") }}
+      </button>
+    </div>
+  </form>
+
+  {# Error state #}
+  {% if error %}
+    <div class="ap-explore-error">{{ error }}</div>
+  {% endif %}
+
+  {# Results #}
+  {% if instance and not error %}
+    {% if items.length > 0 %}
+      <div class="ap-timeline ap-explore-timeline"
+        id="ap-explore-timeline"
+        data-instance="{{ instance }}"
+        data-scope="{{ scope }}"
+        data-mount-path="{{ mountPath }}"
+        data-max-id="{{ maxId if maxId else '' }}">
+        {% for item in items %}
+          {% include "partials/ap-item-card.njk" %}
+        {% endfor %}
+      </div>
+
+      {# Infinite scroll for explore page #}
+      {% if maxId %}
+        <div class="ap-load-more"
+          id="ap-explore-load-more"
+          data-max-id="{{ maxId }}"
+          data-instance="{{ instance }}"
+          data-scope="{{ scope }}"
+          x-data="apExploreScroll()"
+          x-init="init()">
+          <div class="ap-load-more__sentinel" x-ref="sentinel"></div>
+          <button class="ap-load-more__btn" @click="loadMore()" :disabled="loading" x-show="!done">
+            <span x-show="!loading">{{ __("activitypub.reader.pagination.loadMore") }}</span>
+            <span x-show="loading">{{ __("activitypub.reader.pagination.loading") }}</span>
+          </button>
+          <p class="ap-load-more__done" x-show="done" x-cloak>{{ __("activitypub.reader.pagination.noMore") }}</p>
+        </div>
+      {% endif %}
+    {% elif instance %}
+      {{ prose({ text: __("activitypub.reader.explore.noResults") }) }}
+    {% endif %}
+  {% endif %}
+{% endblock %}
