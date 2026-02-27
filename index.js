@@ -61,7 +61,13 @@ import {
 import { resolveController } from "./lib/controllers/resolve.js";
 import { tagTimelineController } from "./lib/controllers/tag-timeline.js";
 import { apiTimelineController } from "./lib/controllers/api-timeline.js";
-import { exploreController, exploreApiController } from "./lib/controllers/explore.js";
+import {
+  exploreController,
+  exploreApiController,
+  instanceSearchApiController,
+  instanceCheckApiController,
+  popularAccountsApiController,
+} from "./lib/controllers/explore.js";
 import { followTagController, unfollowTagController } from "./lib/controllers/follow-tag.js";
 import { publicProfileController } from "./lib/controllers/public-profile.js";
 import { authorizeInteractionController } from "./lib/controllers/authorize-interaction.js";
@@ -227,6 +233,9 @@ export default class ActivityPubEndpoint {
     router.get("/admin/reader/api/timeline", apiTimelineController(mp));
     router.get("/admin/reader/explore", exploreController(mp));
     router.get("/admin/reader/api/explore", exploreApiController(mp));
+    router.get("/admin/reader/api/instances", instanceSearchApiController(mp));
+    router.get("/admin/reader/api/instance-check", instanceCheckApiController(mp));
+    router.get("/admin/reader/api/popular-accounts", popularAccountsApiController(mp));
     router.post("/admin/reader/follow-tag", followTagController(mp));
     router.post("/admin/reader/unfollow-tag", unfollowTagController(mp));
     router.get("/admin/reader/notifications", notificationsController(mp));

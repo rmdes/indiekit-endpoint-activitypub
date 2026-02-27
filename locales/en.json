@@ -220,7 +220,8 @@
         "label": "Look up a fediverse post or account",
         "button": "Look up",
         "notFoundTitle": "Not found",
-        "notFound": "Could not find this post or account. The URL may be invalid, the server may be unavailable, or the content may have been deleted."
+        "notFound": "Could not find this post or account. The URL may be invalid, the server may be unavailable, or the content may have been deleted.",
+        "followersLabel": "followers"
       },
       "linkPreview": {
         "label": "Link preview"
@@ -235,7 +236,10 @@
         "loadError": "Could not load timeline from this instance. It may be unavailable or not support the Mastodon API.",
         "timeout": "Request timed out. The instance may be slow or unavailable.",
         "noResults": "No posts found on this instance's public timeline.",
-        "invalidInstance": "Invalid instance hostname. Please enter a valid domain name."
+        "invalidInstance": "Invalid instance hostname. Please enter a valid domain name.",
+        "mauLabel": "MAU",
+        "timelineSupported": "Public timeline available",
+        "timelineUnsupported": "Public timeline not available"
       },
       "tagTimeline": {
         "postsTagged": "%d posts",

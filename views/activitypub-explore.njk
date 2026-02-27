@@ -9,18 +9,62 @@
     <p class="ap-explore-header__desc">{{ __("activitypub.reader.explore.description") }}</p>
   </header>
 
-  {# Instance form #}
-  <form action="{{ mountPath }}/admin/reader/explore" method="get" class="ap-explore-form">
+  {# Instance form with autocomplete #}
+  <form action="{{ mountPath }}/admin/reader/explore" method="get" class="ap-explore-form"
+    x-data="apInstanceSearch('{{ mountPath }}')"
+    @submit="onSubmit">
     <div class="ap-explore-form__row">
-      <input
-        type="text"
-        name="instance"
-        value="{{ instance }}"
-        class="ap-explore-form__input"
-        placeholder="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
-        aria-label="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
-        autocomplete="off"
-        required>
+      <div class="ap-explore-autocomplete">
+        <input
+          type="text"
+          name="instance"
+          value="{{ instance }}"
+          class="ap-explore-form__input"
+          placeholder="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
+          aria-label="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
+          autocomplete="off"
+          required
+          x-model="query"
+          @input.debounce.300ms="search()"
+          @keydown.arrow-down.prevent="highlightNext()"
+          @keydown.arrow-up.prevent="highlightPrev()"
+          @keydown.enter="selectHighlighted($event)"
+          @keydown.escape="close()"
+          @focus="showResults && suggestions.length > 0 ? showResults = true : null"
+          @click.away="close()"
+          x-ref="input">
+
+        {# Autocomplete dropdown #}
+        <div class="ap-explore-autocomplete__dropdown" x-show="showResults && suggestions.length > 0" x-cloak>
+          <template x-for="(item, index) in suggestions" :key="item.domain">
+            <button type="button"
+              class="ap-explore-autocomplete__item"
+              :class="{ 'ap-explore-autocomplete__item--highlighted': index === highlighted }"
+              @click="selectItem(item)"
+              @mouseenter="highlighted = index">
+              <span class="ap-explore-autocomplete__domain" x-text="item.domain"></span>
+              <span class="ap-explore-autocomplete__meta">
+                <span class="ap-explore-autocomplete__software" x-text="item.software"></span>
+                <template x-if="item.mau > 0">
+                  <span class="ap-explore-autocomplete__mau" x-text="item.mau.toLocaleString() + ' {{ __("activitypub.reader.explore.mauLabel") }}'"></span>
+                </template>
+              </span>
+              <span class="ap-explore-autocomplete__status" x-show="item._timelineStatus !== undefined">
+                <template x-if="item._timelineStatus === 'checking'">
+                  <span class="ap-explore-autocomplete__checking">⏳</span>
+                </template>
+                <template x-if="item._timelineStatus === true">
+                  <span class="ap-explore-autocomplete__supported" title="{{ __('activitypub.reader.explore.timelineSupported') }}">✅</span>
+                </template>
+                <template x-if="item._timelineStatus === false">
+                  <span class="ap-explore-autocomplete__unsupported" title="{{ __('activitypub.reader.explore.timelineUnsupported') }}">❌</span>
+                </template>
+              </span>
+            </button>
+          </template>
+        </div>
+      </div>
+
       <div class="ap-explore-form__scope">
         <label class="ap-explore-form__scope-label">
           <input type="radio" name="scope" value="local"

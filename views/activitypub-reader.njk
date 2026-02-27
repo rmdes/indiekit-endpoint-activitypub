@@ -21,11 +21,44 @@
     </div>
   {% endif %}
 
-  {# Fediverse lookup #}
-  <form action="{{ mountPath }}/admin/reader/resolve" method="get" class="ap-lookup">
-    <input type="text" name="q" class="ap-lookup__input"
-      placeholder="{{ __('activitypub.reader.resolve.placeholder') }}"
-      aria-label="{{ __('activitypub.reader.resolve.label') }}">
+  {# Fediverse lookup with popular accounts autocomplete #}
+  <form action="{{ mountPath }}/admin/reader/resolve" method="get" class="ap-lookup"
+    x-data="apPopularAccounts('{{ mountPath }}')"
+    @submit="onSubmit">
+    <div class="ap-lookup-autocomplete">
+      <input type="text" name="q" class="ap-lookup__input"
+        placeholder="{{ __('activitypub.reader.resolve.placeholder') }}"
+        aria-label="{{ __('activitypub.reader.resolve.label') }}"
+        x-model="query"
+        @focus="loadAccounts()"
+        @input.debounce.200ms="filterAccounts()"
+        @keydown.arrow-down.prevent="highlightNext()"
+        @keydown.arrow-up.prevent="highlightPrev()"
+        @keydown.enter="selectHighlighted($event)"
+        @keydown.escape="close()"
+        @click.away="close()"
+        x-ref="input">
+
+      {# Popular accounts dropdown #}
+      <div class="ap-lookup-autocomplete__dropdown" x-show="showResults && suggestions.length > 0" x-cloak>
+        <template x-for="(item, index) in suggestions" :key="item.handle">
+          <button type="button"
+            class="ap-lookup-autocomplete__item"
+            :class="{ 'ap-lookup-autocomplete__item--highlighted': index === highlighted }"
+            @click="selectItem(item)"
+            @mouseenter="highlighted = index">
+            <img :src="item.avatar" :alt="item.name" class="ap-lookup-autocomplete__avatar"
+              onerror="this.style.display='none'">
+            <span class="ap-lookup-autocomplete__info">
+              <span class="ap-lookup-autocomplete__name" x-text="item.name"></span>
+              <span class="ap-lookup-autocomplete__handle" x-text="item.handle"></span>
+            </span>
+            <span class="ap-lookup-autocomplete__followers"
+              x-text="item.followers.toLocaleString() + ' {{ __("activitypub.reader.resolve.followersLabel") }}'"></span>
+          </button>
+        </template>
+      </div>
+    </div>
     <button type="submit" class="ap-lookup__btn">{{ __("activitypub.reader.resolve.button") }}</button>
   </form>
 
