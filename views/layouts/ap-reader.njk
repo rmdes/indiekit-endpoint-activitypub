@@ -18,6 +18,14 @@
   {# AP link interception for internal navigation #}
   <script defer src="/assets/@rmdes-indiekit-endpoint-activitypub/reader-links.js"></script>
 
+  {% if readerParent %}
+  <nav class="ap-breadcrumb" aria-label="Breadcrumb">
+    <a href="{{ readerParent.href }}">{{ readerParent.text }}</a>
+    <span class="ap-breadcrumb__separator" aria-hidden="true">/</span>
+    <span class="ap-breadcrumb__current" aria-current="page">{{ title }}</span>
+  </nav>
+  {% endif %}
+
   {% block readercontent %}
   {% endblock %}
 {% endblock %}

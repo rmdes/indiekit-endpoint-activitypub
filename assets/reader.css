@@ -5,6 +5,37 @@
  */
 
 /* ==========================================================================
+   Breadcrumb Navigation
+   ========================================================================== */
+
+.ap-breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  margin-bottom: var(--space-m);
+  font-size: var(--font-size-s);
+  color: var(--color-on-offset);
+}
+
+.ap-breadcrumb a {
+  color: var(--color-accent);
+  text-decoration: none;
+}
+
+.ap-breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.ap-breadcrumb__separator {
+  color: var(--color-on-offset);
+}
+
+.ap-breadcrumb__current {
+  color: var(--color-on-background);
+  font-weight: var(--font-weight-bold);
+}
+
+/* ==========================================================================
    Fediverse Lookup
    ========================================================================== */
 
