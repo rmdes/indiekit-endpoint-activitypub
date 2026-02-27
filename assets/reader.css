@@ -752,6 +752,12 @@
   color: var(--color-green50);
 }
 
+.ap-card__action--save.ap-card__action--active {
+  background: #4a9eff22;
+  border-color: #4a9eff;
+  color: #4a9eff;
+}
+
 .ap-card__action:disabled {
   cursor: wait;
   opacity: 0.6;

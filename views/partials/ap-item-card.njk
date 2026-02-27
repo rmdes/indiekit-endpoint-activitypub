@@ -151,8 +151,31 @@
     x-data="{
       liked: {{ 'true' if isLiked else 'false' }},
       boosted: {{ 'true' if isBoosted else 'false' }},
+      saved: false,
       loading: false,
       error: '',
+      async saveLater() {
+        if (this.saved) return;
+        const el = this.$root;
+        const itemUrl = el.dataset.itemUrl;
+        try {
+          const res = await fetch('/readlater/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              url: itemUrl,
+              title: el.closest('article')?.querySelector('p')?.textContent?.substring(0, 80) || itemUrl,
+              source: 'activitypub'
+            }),
+            credentials: 'same-origin'
+          });
+          if (res.ok) this.saved = true;
+          else this.error = 'Failed to save';
+        } catch (e) {
+          this.error = e.message;
+        }
+        if (this.error) setTimeout(() => this.error = '', 3000);
+      },
       async interact(action) {
         if (this.loading) return;
         this.loading = true;
@@ -213,6 +236,16 @@
     <a href="{{ itemUrl }}" class="ap-card__action ap-card__action--link" target="_blank" rel="noopener">
       🔗 {{ __("activitypub.reader.actions.viewOriginal") }}
     </a>
+    {% if application.readlaterEndpoint %}
+    <button class="ap-card__action ap-card__action--save"
+      :class="{ 'ap-card__action--active': saved }"
+      :disabled="saved"
+      @click="saveLater()"
+      :title="saved ? 'Saved' : 'Save for later'">
+      <span x-text="saved ? '🔖' : '📑'"></span>
+      <span x-text="saved ? 'Saved' : 'Save'"></span>
+    </button>
+    {% endif %}
     <div x-show="error" x-text="error" class="ap-card__action-error" x-transition></div>
   </footer>
   {# Close moderation content warning wrapper #}
