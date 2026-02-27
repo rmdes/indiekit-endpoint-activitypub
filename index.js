@@ -1047,6 +1047,29 @@ export default class ActivityPubEndpoint {
     this._federation = federation;
     this._fedifyMiddleware = createFedifyMiddleware(federation, () => ({}));
 
+    // Expose signed avatar resolver for cross-plugin use (e.g., conversations backfill)
+    Indiekit.config.application.resolveActorAvatar = async (actorUrl) => {
+      try {
+        const handle = this.options.actor.handle;
+        const ctx = this._federation.createContext(
+          new URL(this._publicationUrl),
+          { handle, publicationUrl: this._publicationUrl },
+        );
+        const documentLoader = await ctx.getDocumentLoader({
+          identifier: handle,
+        });
+        const actor = await ctx.lookupObject(new URL(actorUrl), {
+          documentLoader,
+        });
+        if (!actor) return "";
+        const { extractActorInfo } = await import("./lib/timeline-store.js");
+        const info = await extractActorInfo(actor, { documentLoader });
+        return info.photo || "";
+      } catch {
+        return "";
+      }
+    };
+
     // Register as endpoint (mounts routesPublic, routesWellKnown, routes)
     Indiekit.addEndpoint(this);
 
