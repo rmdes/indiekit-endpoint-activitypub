@@ -9,6 +9,23 @@
     <p class="ap-explore-header__desc">{{ __("activitypub.reader.explore.description") }}</p>
   </header>
 
+  {# Tab navigation #}
+  {% set exploreBase = mountPath + "/admin/reader/explore" %}
+  <nav class="ap-tabs">
+    <a href="{{ exploreBase }}" class="ap-tab{% if activeTab != 'decks' %} ap-tab--active{% endif %}">
+      {{ __("activitypub.reader.explore.tabs.search") }}
+    </a>
+    <a href="{{ exploreBase }}?tab=decks" class="ap-tab{% if activeTab == 'decks' %} ap-tab--active{% endif %}">
+      {{ __("activitypub.reader.explore.tabs.decks") }}
+      {% if decks and decks.length > 0 %}
+        <span class="ap-tab__count">{{ decks.length }}</span>
+      {% endif %}
+    </a>
+  </nav>
+
+  {# ── Search tab ────────────────────────────────────────────────── #}
+  {% if activeTab != 'decks' %}
+
   {# Instance form with autocomplete #}
   <form action="{{ mountPath }}/admin/reader/explore" method="get" class="ap-explore-form"
     x-data="apInstanceSearch('{{ mountPath }}')"
@@ -90,6 +107,23 @@
 
   {# Results #}
   {% if instance and not error %}
+    {# Add to deck toggle button (shown when browsing results) #}
+    {% if items.length > 0 %}
+      <div class="ap-explore-deck-toggle"
+        x-data="apDeckToggle('{{ instance }}', '{{ scope }}', '{{ mountPath }}', '{{ csrfToken }}', {{ deckCount }}, {{ 'true' if isInDeck else 'false' }})">
+        <button
+          type="button"
+          class="ap-explore-deck-toggle__btn"
+          :class="{ 'ap-explore-deck-toggle__btn--active': inDeck }"
+          @click="toggle()"
+          :disabled="!inDeck && deckLimitReached"
+          :title="!inDeck && deckLimitReached ? '{{ __('activitypub.reader.explore.deck.deckLimitReached') }}' : (inDeck ? '{{ __('activitypub.reader.explore.deck.removeFromDeck') }}' : '{{ __('activitypub.reader.explore.deck.addToDeck') }}')"
+          :aria-label="!inDeck && deckLimitReached ? '{{ __('activitypub.reader.explore.deck.deckLimitReached') }}' : (inDeck ? '{{ __('activitypub.reader.explore.deck.removeFromDeck') }}' : '{{ __('activitypub.reader.explore.deck.addToDeck') }}')"
+          x-text="inDeck ? '★ {{ __('activitypub.reader.explore.deck.inDeck') }}' : '☆ {{ __('activitypub.reader.explore.deck.addToDeck') }}'">
+        </button>
+      </div>
+    {% endif %}
+
     {% if items.length > 0 %}
       <div class="ap-timeline ap-explore-timeline"
         id="ap-explore-timeline"
@@ -123,4 +157,62 @@
       {{ prose({ text: __("activitypub.reader.explore.noResults") }) }}
     {% endif %}
   {% endif %}
+
+  {% endif %}{# end Search tab #}
+
+  {# ── Decks tab ──────────────────────────────────────────────────── #}
+  {% if activeTab == 'decks' %}
+    {% if decks and decks.length > 0 %}
+      <div class="ap-deck-grid" data-csrf-token="{{ csrfToken }}">
+        {% for deck in decks %}
+          <div class="ap-deck-column"
+            x-data="apDeckColumn('{{ deck.domain }}', '{{ deck.scope }}', '{{ mountPath }}', {{ loop.index0 }}, '{{ csrfToken }}')"
+            x-init="init()">
+            <header class="ap-deck-column__header">
+              <span class="ap-deck-column__domain">{{ deck.domain }}</span>
+              <span class="ap-deck-column__scope-badge ap-deck-column__scope-badge--{{ deck.scope }}">
+                {{ __("activitypub.reader.explore.deck." + deck.scope + "Badge") }}
+              </span>
+              <button
+                type="button"
+                class="ap-deck-column__remove"
+                @click="removeDeck()"
+                title="{{ __('activitypub.reader.explore.deck.removeColumn') }}"
+                aria-label="{{ __('activitypub.reader.explore.deck.removeColumn') }}">×</button>
+            </header>
+            <div class="ap-deck-column__body" x-ref="body">
+              <div x-show="loading && itemCount === 0" class="ap-deck-column__loading">
+                <span>{{ __("activitypub.reader.pagination.loading") }}</span>
+              </div>
+              <div x-show="error" class="ap-deck-column__error" x-cloak>
+                <p x-text="error"></p>
+                <button type="button" class="ap-deck-column__retry" @click="retryLoad()">
+                  {{ __("activitypub.reader.explore.deck.retry") }}
+                </button>
+              </div>
+              <div x-show="!loading && !error && itemCount === 0" class="ap-deck-column__empty" x-cloak>
+                {{ __("activitypub.reader.explore.noResults") }}
+              </div>
+              <div x-html="html" class="ap-deck-column__items"></div>
+              <div class="ap-deck-column__sentinel" x-ref="sentinel"></div>
+              <div x-show="loading && itemCount > 0" class="ap-deck-column__loading-more" x-cloak>
+                <span>{{ __("activitypub.reader.pagination.loading") }}</span>
+              </div>
+              <p x-show="done && itemCount > 0" class="ap-deck-column__done" x-cloak>
+                {{ __("activitypub.reader.pagination.noMore") }}
+              </p>
+            </div>
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="ap-deck-empty">
+        <p>{{ __("activitypub.reader.explore.deck.emptyState") }}</p>
+        <a href="{{ exploreBase }}" class="ap-deck-empty__link">
+          {{ __("activitypub.reader.explore.deck.emptyStateLink") }}
+        </a>
+      </div>
+    {% endif %}
+  {% endif %}{# end Decks tab #}
+
 {% endblock %}

@@ -239,7 +239,24 @@
         "invalidInstance": "Invalid instance hostname. Please enter a valid domain name.",
         "mauLabel": "MAU",
         "timelineSupported": "Public timeline available",
-        "timelineUnsupported": "Public timeline not available"
+        "timelineUnsupported": "Public timeline not available",
+        "tabs": {
+          "search": "Search",
+          "decks": "Decks"
+        },
+        "deck": {
+          "addToDeck": "Add to deck",
+          "removeFromDeck": "Remove from deck",
+          "inDeck": "In deck",
+          "deckLimitReached": "Maximum of 8 decks reached",
+          "localBadge": "Local",
+          "federatedBadge": "Federated",
+          "removeColumn": "Remove column",
+          "retry": "Retry",
+          "loadError": "Could not load timeline from this instance.",
+          "emptyState": "No decks yet. Browse an instance in the Search tab and click the star to add it.",
+          "emptyStateLink": "Go to Search"
+        }
       },
       "tagTimeline": {
         "postsTagged": "%d posts",
