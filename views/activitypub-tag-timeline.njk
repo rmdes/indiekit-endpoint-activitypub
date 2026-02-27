@@ -1,7 +1,5 @@
 {% extends "layouts/ap-reader.njk" %}
 
-{% from "prose/macro.njk" import prose with context %}
-
 {% block readercontent %}
   {# Tag header #}
   <header class="ap-tag-header">
@@ -81,6 +79,6 @@
       </div>
     {% endif %}
   {% else %}
-    {{ prose({ text: __("activitypub.reader.tagTimeline.noPosts", tag) }) }}
+    {{ prose({ text: __("activitypub.reader.tagTimeline.noPosts") | replace("%s", tag) }) }}
   {% endif %}
 {% endblock %}
