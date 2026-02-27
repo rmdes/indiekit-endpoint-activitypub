@@ -4,7 +4,7 @@
   {# Tag header #}
   <header class="ap-tag-header">
     <div class="ap-tag-header__info">
-      <h2 class="ap-tag-header__title">#{{ tag }}</h2>
+      <h2 class="ap-tag-header__title">#{{ hashtag }}</h2>
       <p class="ap-tag-header__count">
         {{ __("activitypub.reader.tagTimeline.postsTagged", items.length) }}
       </p>
@@ -13,7 +13,7 @@
       {% if isFollowed %}
         <form action="{{ mountPath }}/admin/reader/unfollow-tag" method="post" class="ap-tag-header__follow-form">
           <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-          <input type="hidden" name="tag" value="{{ tag }}">
+          <input type="hidden" name="tag" value="{{ hashtag }}">
           <button type="submit" class="ap-tag-header__unfollow-btn">
             {{ __("activitypub.reader.tagTimeline.unfollowTag") }}
           </button>
@@ -21,7 +21,7 @@
       {% else %}
         <form action="{{ mountPath }}/admin/reader/follow-tag" method="post" class="ap-tag-header__follow-form">
           <input type="hidden" name="_csrf" value="{{ csrfToken }}">
-          <input type="hidden" name="tag" value="{{ tag }}">
+          <input type="hidden" name="tag" value="{{ hashtag }}">
           <button type="submit" class="ap-tag-header__follow-btn">
             {{ __("activitypub.reader.tagTimeline.followTag") }}
           </button>
@@ -37,7 +37,7 @@
   {% if items.length > 0 %}
     <div class="ap-timeline"
       data-mount-path="{{ mountPath }}"
-      data-tag="{{ tag }}"
+      data-tag="{{ hashtag }}"
       data-before="{{ before if before else '' }}">
       {% for item in items %}
         {% include "partials/ap-item-card.njk" %}
@@ -48,12 +48,12 @@
     {% if before or after %}
       <nav class="ap-pagination ap-pagination--js-hidden" id="ap-tag-pagination">
         {% if after %}
-          <a href="?tag={{ tag }}&after={{ after }}" class="ap-pagination__prev">
+          <a href="?tag={{ hashtag }}&after={{ after }}" class="ap-pagination__prev">
             {{ __("activitypub.reader.pagination.newer") }}
           </a>
         {% endif %}
         {% if before %}
-          <a href="?tag={{ tag }}&before={{ before }}" class="ap-pagination__next">
+          <a href="?tag={{ hashtag }}&before={{ before }}" class="ap-pagination__next">
             {{ __("activitypub.reader.pagination.older") }}
           </a>
         {% endif %}
@@ -66,7 +66,7 @@
         id="ap-load-more"
         data-before="{{ before }}"
         data-tab=""
-        data-tag="{{ tag }}"
+        data-tag="{{ hashtag }}"
         x-data="apInfiniteScroll()"
         x-init="init()"
         @ap-append-items.window="appendItems($event.detail)">
@@ -79,6 +79,6 @@
       </div>
     {% endif %}
   {% else %}
-    {{ prose({ text: __("activitypub.reader.tagTimeline.noPosts") | replace("%s", tag) }) }}
+    {{ prose({ text: __("activitypub.reader.tagTimeline.noPosts", hashtag) }) }}
   {% endif %}
 {% endblock %}
