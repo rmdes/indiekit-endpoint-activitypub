@@ -11,6 +11,7 @@ document.addEventListener("alpine:init", () => {
     maxId: null,
     instance: "",
     scope: "local",
+    hashtag: "",
     observer: null,
 
     init() {
@@ -18,6 +19,7 @@ document.addEventListener("alpine:init", () => {
       this.maxId = el.dataset.maxId || null;
       this.instance = el.dataset.instance || "";
       this.scope = el.dataset.scope || "local";
+      this.hashtag = el.dataset.hashtag || "";
 
       if (!this.maxId) {
         this.done = true;
@@ -53,6 +55,10 @@ document.addEventListener("alpine:init", () => {
         scope: this.scope,
         max_id: this.maxId,
       });
+      // Pass hashtag when in hashtag mode so infinite scroll stays on tag timeline
+      if (this.hashtag) {
+        params.set("hashtag", this.hashtag);
+      }
 
       try {
         const res = await fetch(

@@ -9,210 +9,381 @@
     <p class="ap-explore-header__desc">{{ __("activitypub.reader.explore.description") }}</p>
   </header>
 
-  {# Tab navigation #}
-  {% set exploreBase = mountPath + "/admin/reader/explore" %}
-  <nav class="ap-tabs">
-    <a href="{{ exploreBase }}" class="ap-tab{% if activeTab != 'decks' %} ap-tab--active{% endif %}">
-      {{ __("activitypub.reader.explore.tabs.search") }}
-    </a>
-    <a href="{{ exploreBase }}?tab=decks" class="ap-tab{% if activeTab == 'decks' %} ap-tab--active{% endif %}">
-      {{ __("activitypub.reader.explore.tabs.decks") }}
-      {% if decks and decks.length > 0 %}
-        <span class="ap-tab__count">{{ decks.length }}</span>
-      {% endif %}
-    </a>
-  </nav>
+  {# ── Tabbed explore container (Alpine.js component) ──────────────────── #}
+  <div class="ap-explore-tabs-container"
+    data-mount-path="{{ mountPath }}"
+    data-csrf="{{ csrfToken }}"
+    x-data="apExploreTabs()">
 
-  {# ── Search tab ────────────────────────────────────────────────── #}
-  {% if activeTab != 'decks' %}
+    {# ── Tab bar ──────────────────────────────────────────────────────────── #}
+    <nav class="ap-tabs ap-explore-tabs-nav"
+      id="ap-explore-tab-bar"
+      role="tablist"
+      aria-label="{{ __('activitypub.reader.explore.tabs.label') }}">
 
-  {# Instance form with autocomplete #}
-  <form action="{{ mountPath }}/admin/reader/explore" method="get" class="ap-explore-form"
-    x-data="apInstanceSearch('{{ mountPath }}')"
-    @submit="onSubmit">
-    <div class="ap-explore-form__row">
-      <div class="ap-explore-autocomplete">
-        <input
-          type="text"
-          name="instance"
-          value="{{ instance }}"
-          class="ap-explore-form__input"
-          placeholder="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
-          aria-label="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
-          autocomplete="off"
-          required
-          x-model="query"
-          @input.debounce.300ms="search()"
-          @keydown.arrow-down.prevent="highlightNext()"
-          @keydown.arrow-up.prevent="highlightPrev()"
-          @keydown.enter="selectHighlighted($event)"
-          @keydown.escape="close()"
-          @focus="showResults && suggestions.length > 0 ? showResults = true : null"
-          @click.away="close()"
-          x-ref="input">
-
-        {# Autocomplete dropdown #}
-        <div class="ap-explore-autocomplete__dropdown" x-show="showResults && suggestions.length > 0" x-cloak>
-          <template x-for="(item, index) in suggestions" :key="item.domain">
-            <button type="button"
-              class="ap-explore-autocomplete__item"
-              :class="{ 'ap-explore-autocomplete__item--highlighted': index === highlighted }"
-              @click="selectItem(item)"
-              @mouseenter="highlighted = index">
-              <span class="ap-explore-autocomplete__domain" x-text="item.domain"></span>
-              <span class="ap-explore-autocomplete__meta">
-                <span class="ap-explore-autocomplete__software" x-text="item.software"></span>
-                <template x-if="item.mau > 0">
-                  <span class="ap-explore-autocomplete__mau" x-text="item.mau.toLocaleString() + ' {{ __("activitypub.reader.explore.mauLabel") }}'"></span>
-                </template>
-              </span>
-              <span class="ap-explore-autocomplete__status" x-show="item._timelineStatus !== undefined">
-                <template x-if="item._timelineStatus === 'checking'">
-                  <span class="ap-explore-autocomplete__checking">⏳</span>
-                </template>
-                <template x-if="item._timelineStatus === true">
-                  <span class="ap-explore-autocomplete__supported" title="{{ __('activitypub.reader.explore.timelineSupported') }}">✅</span>
-                </template>
-                <template x-if="item._timelineStatus === false">
-                  <span class="ap-explore-autocomplete__unsupported" title="{{ __('activitypub.reader.explore.timelineUnsupported') }}">❌</span>
-                </template>
-              </span>
-            </button>
-          </template>
-        </div>
-      </div>
-
-      <div class="ap-explore-form__scope">
-        <label class="ap-explore-form__scope-label">
-          <input type="radio" name="scope" value="local"
-            {% if scope == "local" %}checked{% endif %}>
-          {{ __("activitypub.reader.explore.local") }}
-        </label>
-        <label class="ap-explore-form__scope-label">
-          <input type="radio" name="scope" value="federated"
-            {% if scope == "federated" %}checked{% endif %}>
-          {{ __("activitypub.reader.explore.federated") }}
-        </label>
-      </div>
-      <button type="submit" class="ap-explore-form__btn">
-        {{ __("activitypub.reader.explore.browse") }}
+      {# Search tab — always first, not removable #}
+      <button
+        type="button"
+        class="ap-tab"
+        :class="{ 'ap-tab--active': activeTabId === null }"
+        role="tab"
+        :aria-selected="activeTabId === null ? 'true' : 'false'"
+        aria-controls="ap-tab-panel-search"
+        id="ap-tab-btn-search"
+        @click="switchToSearch()"
+        @keydown="handleTabKeydown($event, 0)">
+        {{ __("activitypub.reader.explore.tabs.search") }}
       </button>
-    </div>
-  </form>
 
-  {# Error state #}
-  {% if error %}
-    <div class="ap-explore-error">{{ error }}</div>
-  {% endif %}
+      {# User-created instance and hashtag tabs #}
+      <template x-for="(tab, index) in tabs" :key="tab._id">
+        <div class="ap-tab-wrapper">
+          {# Tab button #}
+          <button
+            type="button"
+            class="ap-tab ap-tab--user"
+            :class="{ 'ap-tab--active': activeTabId === tab._id }"
+            role="tab"
+            :aria-selected="activeTabId === tab._id ? 'true' : 'false'"
+            :aria-controls="'ap-tab-panel-' + tab._id"
+            :id="'ap-tab-btn-' + tab._id"
+            @click="switchTab(tab._id)"
+            @keydown="handleTabKeydown($event, index + 1)">
+            <span class="ap-tab__label" :title="tabLabel(tab)" x-text="tabLabel(tab)"></span>
+            <span
+              x-show="tab.type === 'instance'"
+              class="ap-tab__badge"
+              :class="tab.scope === 'local' ? 'ap-tab__badge--local' : 'ap-tab__badge--federated'"
+              x-text="tab.scope"></span>
+          </button>
 
-  {# Results #}
-  {% if instance and not error %}
-    {# Add to deck toggle button (shown when browsing results) #}
-    {% if items.length > 0 %}
-      <div class="ap-explore-deck-toggle"
-        x-data="apDeckToggle('{{ instance }}', '{{ scope }}', '{{ mountPath }}', '{{ csrfToken }}', {{ deckCount }}, {{ 'true' if isInDeck else 'false' }})">
+          {# Reorder and close controls #}
+          <div class="ap-tab-controls">
+            <button
+              type="button"
+              class="ap-tab-control ap-tab-control--up"
+              @click.stop="moveUp(tab)"
+              :disabled="index === 0"
+              :aria-label="'{{ __('activitypub.reader.explore.tabs.moveUp') }}: ' + tabLabel(tab)">↑</button>
+            <button
+              type="button"
+              class="ap-tab-control ap-tab-control--down"
+              @click.stop="moveDown(tab)"
+              :disabled="index === tabs.length - 1"
+              :aria-label="'{{ __('activitypub.reader.explore.tabs.moveDown') }}: ' + tabLabel(tab)">↓</button>
+            <button
+              type="button"
+              class="ap-tab-control ap-tab-control--remove"
+              @click.stop="removeTab(tab)"
+              :aria-label="'{{ __('activitypub.reader.explore.tabs.remove') }}: ' + tabLabel(tab)">×</button>
+          </div>
+        </div>
+      </template>
+
+      {# +# button — add a hashtag tab #}
+      <div class="ap-tab-add-hashtag">
         <button
           type="button"
-          class="ap-explore-deck-toggle__btn"
-          :class="{ 'ap-explore-deck-toggle__btn--active': inDeck }"
-          @click="toggle()"
-          :disabled="!inDeck && deckLimitReached"
-          :title="!inDeck && deckLimitReached ? '{{ __('activitypub.reader.explore.deck.deckLimitReached') }}' : (inDeck ? '{{ __('activitypub.reader.explore.deck.removeFromDeck') }}' : '{{ __('activitypub.reader.explore.deck.addToDeck') }}')"
-          :aria-label="!inDeck && deckLimitReached ? '{{ __('activitypub.reader.explore.deck.deckLimitReached') }}' : (inDeck ? '{{ __('activitypub.reader.explore.deck.removeFromDeck') }}' : '{{ __('activitypub.reader.explore.deck.addToDeck') }}')"
-          x-text="inDeck ? '★ {{ __('activitypub.reader.explore.deck.inDeck') }}' : '☆ {{ __('activitypub.reader.explore.deck.addToDeck') }}'">
-        </button>
-      </div>
-    {% endif %}
-
-    {% if items.length > 0 %}
-      <div class="ap-timeline ap-explore-timeline"
-        id="ap-explore-timeline"
-        data-instance="{{ instance }}"
-        data-scope="{{ scope }}"
-        data-mount-path="{{ mountPath }}"
-        data-max-id="{{ maxId if maxId else '' }}">
-        {% for item in items %}
-          {% include "partials/ap-item-card.njk" %}
-        {% endfor %}
-      </div>
-
-      {# Infinite scroll for explore page #}
-      {% if maxId %}
-        <div class="ap-load-more"
-          id="ap-explore-load-more"
-          data-max-id="{{ maxId }}"
-          data-instance="{{ instance }}"
-          data-scope="{{ scope }}"
-          x-data="apExploreScroll()"
-          x-init="init()">
-          <div class="ap-load-more__sentinel" x-ref="sentinel"></div>
-          <button class="ap-load-more__btn" @click="loadMore()" :disabled="loading" x-show="!done">
-            <span x-show="!loading">{{ __("activitypub.reader.pagination.loadMore") }}</span>
-            <span x-show="loading">{{ __("activitypub.reader.pagination.loading") }}</span>
+          class="ap-tab ap-tab--add"
+          @click="showHashtagForm = !showHashtagForm"
+          :aria-expanded="showHashtagForm ? 'true' : 'false'"
+          title="{{ __('activitypub.reader.explore.tabs.addHashtag') }}">+#</button>
+        <form
+          x-show="showHashtagForm"
+          x-cloak
+          class="ap-tab-hashtag-form"
+          @submit.prevent="submitHashtagTab()"
+          @keydown.escape.prevent="showHashtagForm = false; hashtagInput = ''">
+          <span class="ap-tab-hashtag-form__prefix">#</span>
+          <input
+            type="text"
+            x-model="hashtagInput"
+            class="ap-tab-hashtag-form__input"
+            placeholder="{{ __('activitypub.reader.explore.tabs.hashtagTabPlaceholder') }}"
+            aria-label="{{ __('activitypub.reader.explore.tabs.addHashtag') }}"
+            autocomplete="off"
+            maxlength="100">
+          <button type="submit" class="ap-tab-hashtag-form__btn">
+            {{ __("activitypub.reader.explore.tabs.addTab") }}
           </button>
-          <p class="ap-load-more__done" x-show="done" x-cloak>{{ __("activitypub.reader.pagination.noMore") }}</p>
-        </div>
-      {% endif %}
-    {% elif instance %}
-      {{ prose({ text: __("activitypub.reader.explore.noResults") }) }}
-    {% endif %}
-  {% endif %}
+        </form>
+      </div>
+    </nav>{# end tab bar nav #}
 
-  {% endif %}{# end Search tab #}
+    {# Error message (CSRF expiry, network errors) #}
+    <p x-show="error" x-cloak class="ap-explore-error" x-text="error"></p>
 
-  {# ── Decks tab ──────────────────────────────────────────────────── #}
-  {% if activeTab == 'decks' %}
-    {% if decks and decks.length > 0 %}
-      <div class="ap-deck-grid" data-csrf-token="{{ csrfToken }}">
-        {% for deck in decks %}
-          <div class="ap-deck-column"
-            x-data="apDeckColumn('{{ deck.domain }}', '{{ deck.scope }}', '{{ mountPath }}', {{ loop.index0 }}, '{{ csrfToken }}')"
-            x-init="init()">
-            <header class="ap-deck-column__header">
-              <span class="ap-deck-column__domain">{{ deck.domain }}</span>
-              <span class="ap-deck-column__scope-badge ap-deck-column__scope-badge--{{ deck.scope }}">
-                {{ __("activitypub.reader.explore.deck." + deck.scope + "Badge") }}
-              </span>
-              <button
-                type="button"
-                class="ap-deck-column__remove"
-                @click="removeDeck()"
-                title="{{ __('activitypub.reader.explore.deck.removeColumn') }}"
-                aria-label="{{ __('activitypub.reader.explore.deck.removeColumn') }}">×</button>
-            </header>
-            <div class="ap-deck-column__body" x-ref="body">
-              <div x-show="loading && itemCount === 0" class="ap-deck-column__loading">
-                <span>{{ __("activitypub.reader.pagination.loading") }}</span>
-              </div>
-              <div x-show="error" class="ap-deck-column__error" x-cloak>
-                <p x-text="error"></p>
-                <button type="button" class="ap-deck-column__retry" @click="retryLoad()">
-                  {{ __("activitypub.reader.explore.deck.retry") }}
+    {# ── Search tab panel ─────────────────────────────────────────────────── #}
+    <div id="ap-tab-panel-search"
+      role="tabpanel"
+      aria-labelledby="ap-tab-btn-search"
+      x-show="activeTabId === null">
+
+      {# Instance form with autocomplete #}
+      <form action="{{ mountPath }}/admin/reader/explore" method="get" class="ap-explore-form"
+        x-data="apInstanceSearch('{{ mountPath }}')"
+        @submit="onSubmit">
+        <div class="ap-explore-form__row">
+          <div class="ap-explore-autocomplete">
+            <input
+              type="text"
+              name="instance"
+              value="{{ instance }}"
+              class="ap-explore-form__input"
+              placeholder="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
+              aria-label="{{ __('activitypub.reader.explore.instancePlaceholder') }}"
+              autocomplete="off"
+              required
+              x-model="query"
+              @input.debounce.300ms="search()"
+              @keydown.arrow-down.prevent="highlightNext()"
+              @keydown.arrow-up.prevent="highlightPrev()"
+              @keydown.enter="selectHighlighted($event)"
+              @keydown.escape="close()"
+              @focus="showResults && suggestions.length > 0 ? showResults = true : null"
+              @click.away="close()"
+              x-ref="input">
+
+            {# Autocomplete dropdown #}
+            <div class="ap-explore-autocomplete__dropdown" x-show="showResults && suggestions.length > 0" x-cloak>
+              <template x-for="(item, index) in suggestions" :key="item.domain">
+                <button type="button"
+                  class="ap-explore-autocomplete__item"
+                  :class="{ 'ap-explore-autocomplete__item--highlighted': index === highlighted }"
+                  @click="selectItem(item)"
+                  @mouseenter="highlighted = index">
+                  <span class="ap-explore-autocomplete__domain" x-text="item.domain"></span>
+                  <span class="ap-explore-autocomplete__meta">
+                    <span class="ap-explore-autocomplete__software" x-text="item.software"></span>
+                    <template x-if="item.mau > 0">
+                      <span class="ap-explore-autocomplete__mau" x-text="item.mau.toLocaleString() + ' {{ __("activitypub.reader.explore.mauLabel") }}'"></span>
+                    </template>
+                  </span>
+                  <span class="ap-explore-autocomplete__status" x-show="item._timelineStatus !== undefined">
+                    <template x-if="item._timelineStatus === 'checking'">
+                      <span class="ap-explore-autocomplete__checking">⏳</span>
+                    </template>
+                    <template x-if="item._timelineStatus === true">
+                      <span class="ap-explore-autocomplete__supported" title="{{ __('activitypub.reader.explore.timelineSupported') }}">✅</span>
+                    </template>
+                    <template x-if="item._timelineStatus === false">
+                      <span class="ap-explore-autocomplete__unsupported" title="{{ __('activitypub.reader.explore.timelineUnsupported') }}">❌</span>
+                    </template>
+                  </span>
                 </button>
-              </div>
-              <div x-show="!loading && !error && itemCount === 0" class="ap-deck-column__empty" x-cloak>
-                {{ __("activitypub.reader.explore.noResults") }}
-              </div>
-              <div x-html="html" class="ap-deck-column__items"></div>
-              <div class="ap-deck-column__sentinel" x-ref="sentinel"></div>
-              <div x-show="loading && itemCount > 0" class="ap-deck-column__loading-more" x-cloak>
-                <span>{{ __("activitypub.reader.pagination.loading") }}</span>
-              </div>
-              <p x-show="done && itemCount > 0" class="ap-deck-column__done" x-cloak>
-                {{ __("activitypub.reader.pagination.noMore") }}
-              </p>
+              </template>
             </div>
           </div>
-        {% endfor %}
+
+          <div class="ap-explore-form__scope">
+            <label class="ap-explore-form__scope-label">
+              <input type="radio" name="scope" value="local"
+                {% if scope == "local" %}checked{% endif %}>
+              {{ __("activitypub.reader.explore.local") }}
+            </label>
+            <label class="ap-explore-form__scope-label">
+              <input type="radio" name="scope" value="federated"
+                {% if scope == "federated" %}checked{% endif %}>
+              {{ __("activitypub.reader.explore.federated") }}
+            </label>
+          </div>
+          <button type="submit" class="ap-explore-form__btn">
+            {{ __("activitypub.reader.explore.browse") }}
+          </button>
+        </div>
+        <div class="ap-explore-form__hashtag-row">
+          <label class="ap-explore-form__hashtag-label" for="ap-explore-hashtag">
+            {{ __("activitypub.reader.explore.hashtagLabel") }}
+          </label>
+          <span class="ap-explore-form__hashtag-prefix">#</span>
+          <input
+            type="text"
+            id="ap-explore-hashtag"
+            name="hashtag"
+            value="{{ hashtag }}"
+            class="ap-explore-form__input ap-explore-form__input--hashtag"
+            placeholder="{{ __('activitypub.reader.explore.hashtagPlaceholder') }}"
+            aria-label="{{ __('activitypub.reader.explore.hashtagPlaceholder') }}"
+            autocomplete="off"
+            pattern="[\w]+"
+            maxlength="100">
+          <span class="ap-explore-form__hashtag-hint">{{ __("activitypub.reader.explore.hashtagHint") }}</span>
+        </div>
+      </form>
+
+      {# Error state #}
+      {% if error %}
+        <div class="ap-explore-error">{{ error }}</div>
+      {% endif %}
+
+      {# Results #}
+      {% if instance and not error %}
+        {# Pin as tab button — outside form, inside apExploreTabs scope #}
+        <div class="ap-explore-pin-bar">
+          <button
+            type="button"
+            class="ap-explore-pin-btn"
+            @click="pinInstance('{{ instance }}', '{{ scope }}')"
+            :disabled="pinning">
+            <span x-show="!pinning">{{ __("activitypub.reader.explore.tabs.pinAsTab") }}</span>
+            <span x-show="pinning" x-cloak>…</span>
+          </button>
+        </div>
+
+        {% if items.length > 0 %}
+          <div class="ap-timeline ap-explore-timeline"
+            id="ap-explore-timeline"
+            data-instance="{{ instance }}"
+            data-scope="{{ scope }}"
+            data-hashtag="{{ hashtag }}"
+            data-mount-path="{{ mountPath }}"
+            data-max-id="{{ maxId if maxId else '' }}">
+            {% for item in items %}
+              {% include "partials/ap-item-card.njk" %}
+            {% endfor %}
+          </div>
+
+          {# Infinite scroll for explore search tab #}
+          {% if maxId %}
+            <div class="ap-load-more"
+              id="ap-explore-load-more"
+              data-max-id="{{ maxId }}"
+              data-instance="{{ instance }}"
+              data-scope="{{ scope }}"
+              data-hashtag="{{ hashtag }}"
+              x-data="apExploreScroll()"
+              x-init="init()">
+              <div class="ap-load-more__sentinel" x-ref="sentinel"></div>
+              <button class="ap-load-more__btn" @click="loadMore()" :disabled="loading" x-show="!done">
+                <span x-show="!loading">{{ __("activitypub.reader.pagination.loadMore") }}</span>
+                <span x-show="loading">{{ __("activitypub.reader.pagination.loading") }}</span>
+              </button>
+              <p class="ap-load-more__done" x-show="done" x-cloak>{{ __("activitypub.reader.pagination.noMore") }}</p>
+            </div>
+          {% endif %}
+        {% elif instance %}
+          {{ prose({ text: __("activitypub.reader.explore.noResults") }) }}
+        {% endif %}
+      {% endif %}
+
+    </div>{# end Search tab panel #}
+
+    {# ── Dynamic tab panels (instance + hashtag) ──────────────────────────── #}
+    <template x-for="tab in tabs" :key="tab._id + '-panel'">
+      <div
+        :id="'ap-tab-panel-' + tab._id"
+        role="tabpanel"
+        :aria-labelledby="'ap-tab-btn-' + tab._id"
+        x-show="activeTabId === tab._id"
+        x-cloak>
+
+        {# ── Instance tab panel ───────────────────────────────────────────── #}
+        <template x-if="tab.type === 'instance'">
+          <div class="ap-explore-instance-panel">
+
+            {# Loading spinner — first load, no content yet #}
+            <div class="ap-explore-tab-loading"
+              x-show="tabState[tab._id] && tabState[tab._id].loading && !tabState[tab._id].html">
+              <span class="ap-explore-tab-loading__text">{{ __("activitypub.reader.pagination.loading") }}</span>
+            </div>
+
+            {# Error state with retry #}
+            <div class="ap-explore-tab-error"
+              x-show="tabState[tab._id] && tabState[tab._id].error && !tabState[tab._id].html">
+              <p class="ap-explore-tab-error__message" x-text="tabState[tab._id] && tabState[tab._id].error"></p>
+              <button type="button" class="ap-explore-tab-error__retry" @click="retryTab(tab)">
+                {{ __("activitypub.reader.explore.tabs.retry") }}
+              </button>
+            </div>
+
+            {# Timeline content — server-rendered cards injected via x-html #}
+            <div class="ap-timeline ap-explore-tab-timeline"
+              x-show="tabState[tab._id] && tabState[tab._id].html"
+              x-html="tabState[tab._id] ? tabState[tab._id].html : ''">
+            </div>
+
+            {# Inline loading spinner for subsequent pages #}
+            <div class="ap-explore-tab-loading ap-explore-tab-loading--more"
+              x-show="tabState[tab._id] && tabState[tab._id].loading && tabState[tab._id].html">
+              <span class="ap-explore-tab-loading__text">{{ __("activitypub.reader.pagination.loading") }}</span>
+            </div>
+
+            {# Empty state — loaded successfully but no posts #}
+            <div class="ap-explore-tab-empty"
+              x-show="tabState[tab._id] && tabState[tab._id].done && !tabState[tab._id].html && !tabState[tab._id].loading && !tabState[tab._id].error">
+              <p>{{ __("activitypub.reader.explore.noResults") }}</p>
+            </div>
+
+            {# End of feed message #}
+            <p class="ap-load-more__done"
+              x-show="tabState[tab._id] && tabState[tab._id].done && tabState[tab._id].html"
+              x-cloak>
+              {{ __("activitypub.reader.pagination.noMore") }}
+            </p>
+
+            {# Infinite scroll sentinel — watched by IntersectionObserver #}
+            <div class="ap-tab-sentinel"></div>
+          </div>
+        </template>
+
+        {# ── Hashtag tab panel ────────────────────────────────────────────── #}
+        <template x-if="tab.type === 'hashtag'">
+          <div class="ap-explore-hashtag-panel">
+
+            {# Source info line — shows which instances are being searched #}
+            <p class="ap-hashtag-sources"
+              x-show="tabState[tab._id] && tabState[tab._id].sourceMeta && tabState[tab._id].sourceMeta.instancesQueried > 0"
+              x-text="hashtagSourcesLine(tab)"
+              x-cloak></p>
+
+            {# Loading spinner — first load, no content yet #}
+            <div class="ap-explore-tab-loading"
+              x-show="tabState[tab._id] && tabState[tab._id].loading && !tabState[tab._id].html">
+              <span class="ap-explore-tab-loading__text">{{ __("activitypub.reader.pagination.loading") }}</span>
+            </div>
+
+            {# Error state with retry #}
+            <div class="ap-explore-tab-error"
+              x-show="tabState[tab._id] && tabState[tab._id].error && !tabState[tab._id].html">
+              <p class="ap-explore-tab-error__message" x-text="tabState[tab._id] && tabState[tab._id].error"></p>
+              <button type="button" class="ap-explore-tab-error__retry" @click="retryTab(tab)">
+                {{ __("activitypub.reader.explore.tabs.retry") }}
+              </button>
+            </div>
+
+            {# Timeline content #}
+            <div class="ap-timeline ap-explore-tab-timeline"
+              x-show="tabState[tab._id] && tabState[tab._id].html"
+              x-html="tabState[tab._id] ? tabState[tab._id].html : ''">
+            </div>
+
+            {# Inline loading spinner for subsequent pages #}
+            <div class="ap-explore-tab-loading ap-explore-tab-loading--more"
+              x-show="tabState[tab._id] && tabState[tab._id].loading && tabState[tab._id].html">
+              <span class="ap-explore-tab-loading__text">{{ __("activitypub.reader.pagination.loading") }}</span>
+            </div>
+
+            {# Empty state — no instance tabs pinned yet #}
+            <div class="ap-explore-tab-empty"
+              x-show="tabState[tab._id] && tabState[tab._id].done && !tabState[tab._id].html && !tabState[tab._id].loading && !tabState[tab._id].error">
+              <p>{{ __("activitypub.reader.explore.tabs.noInstances") }}</p>
+            </div>
+
+            {# End of feed message #}
+            <p class="ap-load-more__done"
+              x-show="tabState[tab._id] && tabState[tab._id].done && tabState[tab._id].html"
+              x-cloak>
+              {{ __("activitypub.reader.pagination.noMore") }}
+            </p>
+
+            {# Infinite scroll sentinel #}
+            <div class="ap-tab-sentinel"></div>
+          </div>
+        </template>
+
       </div>
-    {% else %}
-      <div class="ap-deck-empty">
-        <p>{{ __("activitypub.reader.explore.deck.emptyState") }}</p>
-        <a href="{{ exploreBase }}" class="ap-deck-empty__link">
-          {{ __("activitypub.reader.explore.deck.emptyStateLink") }}
-        </a>
-      </div>
-    {% endif %}
-  {% endif %}{# end Decks tab #}
+    </template>
+
+  </div>{# end ap-explore-tabs-container #}
 
 {% endblock %}

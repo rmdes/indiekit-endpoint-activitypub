@@ -240,22 +240,25 @@
         "mauLabel": "MAU",
         "timelineSupported": "Public timeline available",
         "timelineUnsupported": "Public timeline not available",
+        "hashtagLabel": "Hashtag (optional)",
+        "hashtagPlaceholder": "e.g. indieweb",
+        "hashtagHint": "Filter results to a specific hashtag",
         "tabs": {
+          "label": "Explore tabs",
           "search": "Search",
-          "decks": "Decks"
-        },
-        "deck": {
-          "addToDeck": "Add to deck",
-          "removeFromDeck": "Remove from deck",
-          "inDeck": "In deck",
-          "deckLimitReached": "Maximum of 8 decks reached",
-          "localBadge": "Local",
-          "federatedBadge": "Federated",
-          "removeColumn": "Remove column",
+          "pinAsTab": "Pin as tab",
+          "pinned": "Pinned",
+          "remove": "Remove tab",
+          "moveUp": "Move up",
+          "moveDown": "Move down",
+          "addHashtag": "Add hashtag tab",
+          "hashtagTabPlaceholder": "Enter hashtag",
+          "addTab": "Add",
           "retry": "Retry",
-          "loadError": "Could not load timeline from this instance.",
-          "emptyState": "No decks yet. Browse an instance in the Search tab and click the star to add it.",
-          "emptyStateLink": "Go to Search"
+          "noInstances": "Pin some instances first to use hashtag tabs.",
+          "sources": "Searching #%s across %d instance",
+          "sources_plural": "Searching #%s across %d instances",
+          "sourcesPartial": "%d of %d instances responded"
         }
       },
       "tagTimeline": {

@@ -70,10 +70,12 @@ import {
 } from "./lib/controllers/explore.js";
 import { followTagController, unfollowTagController } from "./lib/controllers/follow-tag.js";
 import {
-  listDecksController,
-  addDeckController,
-  removeDeckController,
-} from "./lib/controllers/decks.js";
+  listTabsController,
+  addTabController,
+  removeTabController,
+  reorderTabsController,
+} from "./lib/controllers/tabs.js";
+import { hashtagExploreApiController } from "./lib/controllers/hashtag-explore.js";
 import { publicProfileController } from "./lib/controllers/public-profile.js";
 import { authorizeInteractionController } from "./lib/controllers/authorize-interaction.js";
 import { myProfileController } from "./lib/controllers/my-profile.js";
@@ -238,12 +240,14 @@ export default class ActivityPubEndpoint {
     router.get("/admin/reader/api/timeline", apiTimelineController(mp));
     router.get("/admin/reader/explore", exploreController(mp));
     router.get("/admin/reader/api/explore", exploreApiController(mp));
+    router.get("/admin/reader/api/explore/hashtag", hashtagExploreApiController(mp));
     router.get("/admin/reader/api/instances", instanceSearchApiController(mp));
     router.get("/admin/reader/api/instance-check", instanceCheckApiController(mp));
     router.get("/admin/reader/api/popular-accounts", popularAccountsApiController(mp));
-    router.get("/admin/reader/api/decks", listDecksController(mp));
-    router.post("/admin/reader/api/decks", addDeckController(mp));
-    router.post("/admin/reader/api/decks/remove", removeDeckController(mp));
+    router.get("/admin/reader/api/tabs", listTabsController(mp));
+    router.post("/admin/reader/api/tabs", addTabController(mp));
+    router.post("/admin/reader/api/tabs/remove", removeTabController(mp));
+    router.patch("/admin/reader/api/tabs/reorder", reorderTabsController(mp));
     router.post("/admin/reader/follow-tag", followTagController(mp));
     router.post("/admin/reader/unfollow-tag", unfollowTagController(mp));
     router.get("/admin/reader/notifications", notificationsController(mp));
@@ -884,8 +888,8 @@ export default class ActivityPubEndpoint {
     Indiekit.addCollection("ap_interactions");
     Indiekit.addCollection("ap_notes");
     Indiekit.addCollection("ap_followed_tags");
-    // Deck collections
-    Indiekit.addCollection("ap_decks");
+    // Explore tab collections
+    Indiekit.addCollection("ap_explore_tabs");
 
     // Store collection references (posts resolved lazily)
     const indiekitCollections = Indiekit.collections;
@@ -906,8 +910,8 @@ export default class ActivityPubEndpoint {
       ap_interactions: indiekitCollections.get("ap_interactions"),
       ap_notes: indiekitCollections.get("ap_notes"),
       ap_followed_tags: indiekitCollections.get("ap_followed_tags"),
-      // Deck collections
-      ap_decks: indiekitCollections.get("ap_decks"),
+      // Explore tab collections
+      ap_explore_tabs: indiekitCollections.get("ap_explore_tabs"),
       get posts() {
         return indiekitCollections.get("posts");
       },
@@ -1032,10 +1036,18 @@ export default class ActivityPubEndpoint {
         { background: true },
       );
 
-      // Deck index — compound unique ensures same instance can appear at most once per scope
-      this._collections.ap_decks.createIndex(
-        { domain: 1, scope: 1 },
+      // Explore tab indexes
+      // Compound unique on (type, domain, scope, hashtag) prevents duplicate tabs.
+      // ALL insertions must explicitly set all four fields (unused fields = null)
+      // because MongoDB treats missing fields differently from null in unique indexes.
+      this._collections.ap_explore_tabs.createIndex(
+        { type: 1, domain: 1, scope: 1, hashtag: 1 },
         { unique: true, background: true },
+      );
+      // Order index for efficient sorting of tab bar
+      this._collections.ap_explore_tabs.createIndex(
+        { order: 1 },
+        { background: true },
       );
     } catch {
       // Index creation failed — collections not yet available.

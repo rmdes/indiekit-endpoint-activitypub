@@ -2060,189 +2060,294 @@
   font-weight: 600;
 }
 
-/* ---------- Explore: deck toggle button ---------- */
+/* ==========================================================================
+   Explore: Tabbed Design
+   ========================================================================== */
 
-.ap-explore-deck-toggle {
-  display: flex;
-  justify-content: flex-end;
-  margin-bottom: var(--space-s);
+/* Tab bar wrapper: enables position:relative for fade gradient overlay */
+.ap-explore-tabs-container {
+  position: relative;
 }
 
-.ap-explore-deck-toggle__btn {
-  align-items: center;
-  background: none;
-  border: var(--border-width-thin) solid var(--color-outline);
-  border-radius: var(--border-radius-small);
-  color: var(--color-on-background);
-  cursor: pointer;
+/* Tab bar with right-edge fade to indicate horizontal overflow */
+.ap-explore-tabs-nav {
+  padding-right: var(--space-l);
+  position: relative;
+}
+
+.ap-explore-tabs-nav::after {
+  background: linear-gradient(to right, transparent, var(--color-background, #fff) 80%);
+  content: "";
+  height: 100%;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 40px;
+}
+
+/* Tab wrapper: holds tab button + reorder/close controls together */
+.ap-tab-wrapper {
+  align-items: stretch;
   display: inline-flex;
-  font-size: var(--font-size-s);
-  gap: var(--space-2xs);
-  padding: var(--space-xs) var(--space-s);
-  transition: background 0.15s, color 0.15s, border-color 0.15s;
+  position: relative;
 }
 
-.ap-explore-deck-toggle__btn:hover:not(:disabled) {
-  background: var(--color-offset);
-}
-
-.ap-explore-deck-toggle__btn--active {
-  background: var(--color-accent5);
-  border-color: var(--color-accent5);
-  color: var(--color-on-accent, #fff);
-}
-
-.ap-explore-deck-toggle__btn--active:hover:not(:disabled) {
-  background: var(--color-accent45);
-  border-color: var(--color-accent45);
-}
-
-.ap-explore-deck-toggle__btn:disabled {
-  cursor: not-allowed;
-  opacity: 0.5;
-}
-
-/* ---------- Deck grid layout ---------- */
-
-.ap-deck-grid {
-  display: grid;
-  gap: var(--space-m);
-  grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
-  margin-top: var(--space-m);
-  min-width: 0;
-}
-
-/* ---------- Deck column ---------- */
-
-.ap-deck-column {
-  background: var(--color-offset);
-  border: var(--border-width-thin) solid var(--color-outline);
-  border-radius: var(--border-radius-small);
-  display: flex;
-  flex-direction: column;
-  max-height: calc(100dvh - 220px);
-  min-height: 200px;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.ap-deck-column__header {
+/* Show controls on hover or when the tab is active */
+.ap-tab-controls {
   align-items: center;
-  background: var(--color-background);
-  border-bottom: var(--border-width-thin) solid var(--color-outline);
-  display: flex;
-  flex-shrink: 0;
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-s);
+  display: none;
+  gap: 1px;
 }
 
-.ap-deck-column__domain {
+.ap-tab-wrapper:hover .ap-tab-controls,
+.ap-tab-wrapper:focus-within .ap-tab-controls {
+  display: flex;
+}
+
+/* Individual control buttons (↑ ↓ ×) */
+.ap-tab-control {
+  background: none;
+  border: none;
+  color: var(--color-on-offset);
+  cursor: pointer;
+  font-size: var(--font-size-xs);
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.ap-tab-control:hover {
+  color: var(--color-on-background);
+}
+
+.ap-tab-control:disabled {
+  cursor: default;
+  opacity: 0.3;
+}
+
+.ap-tab-control--remove {
+  color: var(--color-on-offset);
   font-size: var(--font-size-s);
-  font-weight: 600;
-  min-width: 0;
+}
+
+.ap-tab-control--remove:hover {
+  color: var(--color-red45);
+}
+
+/* Truncate long domain names in tab labels */
+.ap-tab__label {
+  display: inline-block;
+  max-width: 150px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.ap-deck-column__scope-badge {
-  border-radius: var(--border-radius-small);
-  flex-shrink: 0;
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-  padding: 2px var(--space-xs);
+/* Scope badges on instance tabs */
+.ap-tab__badge {
+  border-radius: 3px;
+  font-size: 0.65em;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  margin-left: var(--space-xs);
+  padding: 1px 4px;
   text-transform: uppercase;
+  vertical-align: middle;
 }
 
-.ap-deck-column__scope-badge--local {
-  background: var(--color-blue10, #dbeafe);
-  color: var(--color-blue50, #1e40af);
+.ap-tab__badge--local {
+  background: color-mix(in srgb, var(--color-blue40, #2563eb) 15%, transparent);
+  color: var(--color-blue40, #2563eb);
 }
 
-.ap-deck-column__scope-badge--federated {
-  background: var(--color-purple10, #ede9fe);
-  color: var(--color-purple50, #5b21b6);
+.ap-tab__badge--federated {
+  background: color-mix(in srgb, var(--color-purple45, #7c3aed) 15%, transparent);
+  color: var(--color-purple45, #7c3aed);
 }
 
-.ap-deck-column__remove {
-  background: none;
-  border: none;
+/* +# button for adding hashtag tabs */
+.ap-tab--add {
+  font-family: monospace;
+  font-weight: 700;
+  letter-spacing: -0.05em;
+}
+
+/* Inline hashtag form that appears when +# is clicked */
+.ap-tab-add-hashtag {
+  align-items: center;
+  display: inline-flex;
+  gap: var(--space-xs);
+}
+
+.ap-tab-hashtag-form {
+  align-items: center;
+  display: flex;
+  gap: var(--space-xs);
+}
+
+.ap-tab-hashtag-form__prefix {
   color: var(--color-on-offset);
-  cursor: pointer;
-  flex-shrink: 0;
-  font-size: 1.2rem;
-  line-height: 1;
-  margin-left: auto;
-  padding: 0 2px;
+  font-weight: 600;
 }
 
-.ap-deck-column__remove:hover {
-  color: var(--color-red45);
-}
-
-.ap-deck-column__body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: var(--space-xs);
-}
-
-.ap-deck-column__loading,
-.ap-deck-column__loading-more,
-.ap-deck-column__error,
-.ap-deck-column__empty,
-.ap-deck-column__done {
-  color: var(--color-on-offset);
-  font-size: var(--font-size-s);
-  padding: var(--space-s);
-  text-align: center;
-}
-
-.ap-deck-column__retry {
-  background: none;
+.ap-tab-hashtag-form__input {
   border: var(--border-width-thin) solid var(--color-outline);
   border-radius: var(--border-radius-small);
-  color: var(--color-on-background);
+  font-family: inherit;
+  font-size: var(--font-size-s);
+  padding: 2px var(--space-s);
+  width: 8em;
+}
+
+.ap-tab-hashtag-form__input:focus {
+  border-color: var(--color-primary);
+  outline: 2px solid var(--color-primary);
+  outline-offset: -1px;
+}
+
+.ap-tab-hashtag-form__btn {
+  background: var(--color-primary);
+  border: none;
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-primary);
   cursor: pointer;
+  font-family: inherit;
   font-size: var(--font-size-s);
-  margin-top: var(--space-xs);
-  padding: var(--space-xs) var(--space-s);
+  padding: 2px var(--space-s);
+  white-space: nowrap;
 }
 
-.ap-deck-column__retry:hover {
-  background: var(--color-offset);
+.ap-tab-hashtag-form__btn:hover {
+  opacity: 0.85;
 }
 
-/* Cards inside deck columns are more compact */
-.ap-deck-column__items .ap-item-card {
-  font-size: var(--font-size-s);
-}
-
-/* ---------- Deck empty state ---------- */
-
-.ap-deck-empty {
-  margin-top: var(--space-xl);
-  text-align: center;
-}
-
-.ap-deck-empty p {
-  color: var(--color-on-offset);
-  font-size: var(--font-size-s);
+/* "Pin as tab" button in search results area */
+.ap-explore-pin-bar {
   margin-bottom: var(--space-s);
 }
 
-.ap-deck-empty__link {
+.ap-explore-pin-btn {
+  background: none;
+  border: var(--border-width-thin) solid var(--color-primary);
+  border-radius: var(--border-radius-small);
+  color: var(--color-primary);
+  cursor: pointer;
+  font-family: inherit;
+  font-size: var(--font-size-s);
+  padding: var(--space-xs) var(--space-m);
+}
+
+.ap-explore-pin-btn:hover {
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
+}
+
+.ap-explore-pin-btn:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* Hashtag form row inside the search form */
+.ap-explore-form__hashtag-row {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-xs);
+  margin-top: var(--space-s);
+}
+
+.ap-explore-form__hashtag-label {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  white-space: nowrap;
+}
+
+.ap-explore-form__hashtag-prefix {
+  color: var(--color-on-offset);
+  font-weight: 600;
+}
+
+.ap-explore-form__hashtag-hint {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-xs);
+  flex-basis: 100%;
+}
+
+.ap-explore-form__input--hashtag {
+  max-width: 200px;
+  width: auto;
+}
+
+/* Tab panel containers */
+.ap-explore-instance-panel,
+.ap-explore-hashtag-panel {
+  min-height: 120px;
+}
+
+/* Loading state */
+.ap-explore-tab-loading {
+  align-items: center;
+  color: var(--color-on-offset);
+  display: flex;
+  justify-content: center;
+  padding: var(--space-xl);
+}
+
+.ap-explore-tab-loading--more {
+  padding-block: var(--space-m);
+}
+
+.ap-explore-tab-loading__text {
   font-size: var(--font-size-s);
 }
 
-/* ---------- Deck responsive ---------- */
-
-@media (max-width: 767px) {
-  .ap-deck-grid {
-    grid-template-columns: 1fr;
-  }
-
-  .ap-deck-column {
-    max-height: 60vh;
-  }
+/* Error state */
+.ap-explore-tab-error {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-s);
+  padding: var(--space-xl);
 }
+
+.ap-explore-tab-error__message {
+  color: var(--color-red45);
+  font-size: var(--font-size-s);
+  margin: 0;
+}
+
+.ap-explore-tab-error__retry {
+  background: none;
+  border: 1px solid var(--color-accent);
+  border-radius: var(--border-radius-small);
+  color: var(--color-accent);
+  cursor: pointer;
+  font-size: var(--font-size-s);
+  padding: var(--space-xs) var(--space-s);
+}
+
+.ap-explore-tab-error__retry:hover {
+  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+}
+
+/* Empty state */
+.ap-explore-tab-empty {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  padding: var(--space-xl);
+  text-align: center;
+}
+
+/* Infinite scroll sentinel — zero height, invisible */
+.ap-tab-sentinel {
+  height: 1px;
+  visibility: hidden;
+}
+
+/* Hashtag tab sources info line */
+.ap-hashtag-sources {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  margin: 0;
+  padding: var(--space-s) 0 var(--space-xs);
+}
+
