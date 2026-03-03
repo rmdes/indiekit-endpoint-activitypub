@@ -18,7 +18,7 @@
 }
 
 .ap-breadcrumb a {
-  color: var(--color-accent);
+  color: var(--color-primary-on-background);
   text-decoration: none;
 }
 
@@ -115,7 +115,7 @@
 
 .ap-tab--active {
   border-bottom-color: var(--color-primary);
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
   font-weight: 600;
 }
 
@@ -242,7 +242,7 @@
 }
 
 .ap-card__reply-to a {
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
   text-decoration: none;
 }
 
@@ -349,7 +349,7 @@
 
 .ap-card__timestamp-link:hover {
   text-decoration: underline;
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
 }
 
 /* ==========================================================================
@@ -385,7 +385,7 @@
 }
 
 .ap-card__content a {
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
 }
 
 .ap-card__content p {
@@ -447,7 +447,7 @@
 
 .ap-card__content .h-card a:hover,
 .ap-card__content a.u-url.mention:hover {
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
   text-decoration: underline;
 }
 
@@ -464,7 +464,7 @@
 }
 
 .ap-card__content a.mention.hashtag:hover {
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
   text-decoration: underline;
 }
 
@@ -720,17 +720,17 @@
 }
 
 .ap-card__mention {
-  background: color-mix(in srgb, var(--color-accent) 12%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
   border-radius: var(--border-radius-large);
-  color: var(--color-accent);
+  color: var(--color-primary-on-background);
   font-size: var(--font-size-s);
   padding: 2px var(--space-xs);
   text-decoration: none;
 }
 
 .ap-card__mention:hover {
-  background: color-mix(in srgb, var(--color-accent) 22%, transparent);
-  color: var(--color-accent);
+  background: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  color: var(--color-primary-on-background);
 }
 
 .ap-card__mention--legacy {
@@ -874,7 +874,7 @@
 }
 
 .ap-pagination a {
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
   text-decoration: none;
 }
 
@@ -1120,11 +1120,11 @@
 }
 
 .ap-notifications__btn--danger {
-  color: var(--color-red45);
+  color: var(--color-error);
 }
 
 .ap-notifications__btn--danger:hover {
-  border-color: var(--color-red45);
+  border-color: var(--color-error);
 }
 
 .ap-notification {
@@ -1230,7 +1230,7 @@
 
 .ap-notification__dismiss-btn:hover {
   background: var(--color-offset-variant);
-  color: var(--color-red45);
+  color: var(--color-error);
 }
 
 .ap-notification__actions {
@@ -1316,7 +1316,7 @@
 }
 
 .ap-profile__bio a {
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
 }
 
 /* Override upstream .mention { display: grid } for bio content */
@@ -1463,7 +1463,7 @@
 }
 
 .ap-my-profile__bio a {
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
 }
 
 /* Override upstream .mention { display: grid } for bio content */
@@ -1513,7 +1513,7 @@
 }
 
 .ap-my-profile__field-value a {
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
 }
 
 .ap-my-profile__stats {
@@ -1795,7 +1795,7 @@
 }
 
 .ap-post-detail__back-link {
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
   font-size: var(--font-size-s);
   text-decoration: none;
 }
@@ -1879,10 +1879,10 @@
 }
 
 .ap-tag-header__follow-btn {
-  background: var(--color-accent);
+  background: var(--color-primary);
   border: none;
   border-radius: var(--border-radius-small);
-  color: var(--color-on-accent);
+  color: var(--color-on-primary, var(--color-neutral99));
   cursor: pointer;
   font-size: var(--font-size-s);
   padding: var(--space-xs) var(--space-s);
@@ -2023,10 +2023,10 @@
 }
 
 .ap-explore-error {
-  background: color-mix(in srgb, var(--color-red45) 10%, transparent);
-  border: var(--border-width-thin) solid var(--color-red45);
+  background: color-mix(in srgb, var(--color-error) 10%, transparent);
+  border: var(--border-width-thin) solid var(--color-error);
   border-radius: var(--border-radius-small);
-  color: var(--color-red45);
+  color: var(--color-error);
   margin-bottom: var(--space-m);
   padding: var(--space-s) var(--space-m);
 }
@@ -2296,7 +2296,7 @@
 }
 
 .ap-tab-control--remove:hover {
-  color: var(--color-red45);
+  color: var(--color-error);
 }
 
 /* Truncate long domain names in tab labels */
@@ -2321,13 +2321,13 @@
 }
 
 .ap-tab__badge--local {
-  background: color-mix(in srgb, var(--color-blue40, #2563eb) 15%, transparent);
-  color: var(--color-blue40, #2563eb);
+  background: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  color: var(--color-primary-on-background);
 }
 
 .ap-tab__badge--federated {
-  background: color-mix(in srgb, var(--color-purple45, #7c3aed) 15%, transparent);
-  color: var(--color-purple45, #7c3aed);
+  background: color-mix(in srgb, var(--color-purple45) 15%, transparent);
+  color: var(--color-purple45);
 }
 
 /* +# button for adding hashtag tabs */
@@ -2393,9 +2393,9 @@
 
 .ap-explore-pin-btn {
   background: none;
-  border: var(--border-width-thin) solid var(--color-primary);
+  border: var(--border-width-thin) solid var(--color-primary-on-background);
   border-radius: var(--border-radius-small);
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
   cursor: pointer;
   font-family: inherit;
   font-size: var(--font-size-s);
@@ -2475,23 +2475,23 @@
 }
 
 .ap-explore-tab-error__message {
-  color: var(--color-red45);
+  color: var(--color-error);
   font-size: var(--font-size-s);
   margin: 0;
 }
 
 .ap-explore-tab-error__retry {
   background: none;
-  border: 1px solid var(--color-accent);
+  border: 1px solid var(--color-primary-on-background);
   border-radius: var(--border-radius-small);
-  color: var(--color-accent);
+  color: var(--color-primary-on-background);
   cursor: pointer;
   font-size: var(--font-size-s);
   padding: var(--space-xs) var(--space-s);
 }
 
 .ap-explore-tab-error__retry:hover {
-  background: color-mix(in srgb, var(--color-accent) 10%, transparent);
+  background: color-mix(in srgb, var(--color-primary) 10%, transparent);
 }
 
 /* Empty state */
@@ -2747,5 +2747,105 @@
   max-height: 8rem;
   overflow-y: auto;
   z-index: 2;
+}
+
+/* ==========================================================================
+   Dark Mode Overrides
+   Softens saturated colors that are uncomfortable on dark backgrounds.
+   Uses Indiekit's existing light-variant tokens (red80, green90, yellow90)
+   which are designed for dark surfaces.
+   ========================================================================== */
+
+@media (prefers-color-scheme: dark) {
+
+  /* --- Action button hover states: softer colors, more visible tinted backgrounds --- */
+  .ap-card__action--reply:hover {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    color: var(--color-primary-on-background);
+  }
+
+  .ap-card__action--boost:hover {
+    background: color-mix(in srgb, var(--color-green50) 18%, transparent);
+    color: var(--color-green90);
+  }
+
+  .ap-card__action--like:hover {
+    background: color-mix(in srgb, var(--color-red45) 18%, transparent);
+    color: var(--color-red80);
+  }
+
+  .ap-card__action--save:hover {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    color: var(--color-primary-on-background);
+  }
+
+  /* --- Active interaction states --- */
+  .ap-card__action--like.ap-card__action--active {
+    background: color-mix(in srgb, var(--color-red45) 18%, transparent);
+    color: var(--color-red80);
+  }
+
+  .ap-card__action--boost.ap-card__action--active {
+    background: color-mix(in srgb, var(--color-green50) 18%, transparent);
+    color: var(--color-green90);
+  }
+
+  .ap-card__action--save.ap-card__action--active {
+    background: color-mix(in srgb, var(--color-primary) 18%, transparent);
+    color: var(--color-primary-on-background);
+  }
+
+  /* --- Post-type left border accents: desaturated for dark surfaces --- */
+  .ap-card--note,
+  .ap-card--note:hover {
+    border-left-color: var(--color-purple90);
+  }
+
+  .ap-card--article,
+  .ap-card--article:hover {
+    border-left-color: var(--color-green90);
+  }
+
+  .ap-card--boost,
+  .ap-card--boost:hover {
+    border-left-color: var(--color-yellow90);
+  }
+
+  .ap-card--reply,
+  .ap-card--reply:hover {
+    border-left-color: var(--color-primary-on-background);
+  }
+
+  /* --- Notification unread glow: toned down --- */
+  .ap-notification--unread {
+    border-color: var(--color-yellow90);
+    box-shadow: 0 0 6px 0 color-mix(in srgb, var(--color-yellow50) 15%, transparent);
+  }
+
+  /* --- Post detail highlight ring: softened --- */
+  .ap-post-detail__main .ap-card {
+    border-color: color-mix(in srgb, var(--color-primary) 50%, transparent);
+    box-shadow: 0 0 0 1px color-mix(in srgb, var(--color-primary) 50%, transparent);
+  }
+
+  /* --- Card shadows: use light tint instead of black --- */
+  .ap-card {
+    box-shadow: 0 1px 2px rgba(255, 255, 255, 0.04);
+  }
+
+  .ap-card:hover {
+    box-shadow: 0 2px 8px rgba(255, 255, 255, 0.06);
+  }
+
+  /* --- Compose counter warning --- */
+  .ap-compose__counter--warn {
+    color: var(--color-yellow90);
+  }
+
+  /* --- Tab badge federated: soften purple --- */
+  .ap-tab__badge--federated {
+    color: var(--color-purple90);
+    background: color-mix(in srgb, var(--color-purple45) 18%, transparent);
+  }
 }
 

@@ -16,7 +16,7 @@
   display: flex;
   overflow: hidden;
   border-radius: 8px;
-  border: 1px solid var(--color-neutral-lighter);
+  border: 1px solid var(--color-outline);
   background-color: var(--color-offset);
   text-decoration: none;
   color: inherit;
@@ -105,7 +105,7 @@
 
 .ap-post-detail__back-link {
   font-size: 0.875rem;
-  color: var(--color-primary);
+  color: var(--color-primary-on-background);
   text-decoration: none;
 }
 
@@ -121,7 +121,7 @@
   letter-spacing: 0.05em;
   margin: var(--space-l) 0 var(--space-s);
   padding-bottom: var(--space-xs);
-  border-bottom: 1px solid var(--color-neutral-lighter);
+  border-bottom: 1px solid var(--color-outline);
 }
 
 .ap-post-detail__main {
@@ -142,7 +142,7 @@
 .ap-post-detail__parents .ap-post-detail__parent-item {
   position: relative;
   padding-left: var(--space-m);
-  border-left: 2px solid var(--color-neutral-lighter);
+  border-left: 2px solid var(--color-outline);
 }
 
 /* Main post highlight */
