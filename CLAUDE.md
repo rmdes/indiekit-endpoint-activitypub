@@ -21,8 +21,10 @@ index.js                          ← Plugin entry, route registration, syndicat
 ├── lib/jf2-to-as2.js             ← JF2 → ActivityStreams conversion (plain JSON + Fedify vocab)
 ├── lib/kv-store.js               ← MongoDB-backed KvStore for Fedify (get/set/delete/list)
 ├── lib/activity-log.js           ← Activity logging to ap_activities
+├── lib/item-processing.js        ← Unified item processing pipeline (moderation, quotes, interactions, rendering)
 ├── lib/timeline-store.js         ← Timeline item extraction + sanitization
 ├── lib/timeline-cleanup.js       ← Retention-based timeline pruning
+├── lib/og-unfurl.js              ← Open Graph link previews + quote enrichment
 ├── lib/batch-refollow.js         ← Gradual re-follow for imported Mastodon accounts
 ├── lib/migration.js              ← CSV parsing + WebFinger resolution for Mastodon import
 ├── lib/csrf.js                   ← CSRF token generation/validation
@@ -33,6 +35,11 @@ index.js                          ← Plugin entry, route registration, syndicat
 ├── lib/controllers/              ← Express route handlers (admin UI)
 │   ├── dashboard.js, reader.js, compose.js, profile.js, profile.remote.js
 │   ├── public-profile.js         ← Public profile page (HTML fallback for actor URL)
+│   ├── explore.js, explore-utils.js ← Explore public Mastodon timelines
+│   ├── hashtag-explore.js        ← Cross-instance hashtag search
+│   ├── tag-timeline.js           ← Posts filtered by hashtag
+│   ├── post-detail.js            ← Single post detail view
+│   ├── api-timeline.js           ← AJAX API for infinite scroll + new post count
 │   ├── followers.js, following.js, activities.js
 │   ├── featured.js, featured-tags.js
 │   ├── interactions.js, interactions-like.js, interactions-boost.js
@@ -40,9 +47,11 @@ index.js                          ← Plugin entry, route registration, syndicat
 ├── views/                        ← Nunjucks templates
 │   ├── activitypub-*.njk         ← Page templates
 │   ├── layouts/ap-reader.njk     ← Reader layout (NOT reader.njk — see gotcha below)
-│   └── partials/                 ← Shared components
+│   └── partials/                 ← Shared components (item card, quote embed, link preview, media)
 ├── assets/
 │   ├── reader.css                ← Reader UI styles
+│   ├── reader-infinite-scroll.js ← Alpine.js components (infinite scroll, new posts banner, read tracking)
+│   ├── reader-tabs.js            ← Alpine.js tab persistence
 │   └── icon.svg                  ← Plugin icon
 └── locales/en.json               ← i18n strings
 ```
@@ -53,6 +62,11 @@ index.js                          ← Plugin entry, route registration, syndicat
 Outbound: Indiekit post → syndicator.syndicate() → jf2ToAS2Activity() → ctx.sendActivity() → follower inboxes
 Inbound:  Remote inbox POST → Fedify → inbox-listeners.js → MongoDB collections → admin UI
 Reader:   Followed account posts → Create inbox → timeline-store → ap_timeline → reader UI
+Explore:  Public Mastodon API → fetchMastodonTimeline() → mapMastodonToItem() → explore UI
+
+All views (reader, explore, tag timeline, hashtag explore, API endpoints) share a single
+processing pipeline via item-processing.js:
+  items → applyTabFilter() → loadModerationData() → postProcessItems() → render
 ```
 
 ## MongoDB Collections
@@ -208,6 +222,65 @@ Fedify 2.0 added a `list(prefix?)` method to the KvStore interface. It must retu
 
 The `@fedify/debugger` login form POSTs `application/x-www-form-urlencoded` data. Because Express's body parser runs before the Fedify bridge, the POST body stream is already consumed (`req.readable === false`). The bridge in `federation-bridge.js` detects this and reconstructs the body from `req.body`. Without this, the debugger's login handler receives an empty body and throws `"Response body object should not be disturbed or locked"`. See also Gotcha #1.
 
+### 23. Unified Item Processing Pipeline
+
+All views that display timeline items — reader, explore, tag timeline, hashtag explore, and their AJAX API counterparts — **must** use the shared pipeline in `lib/item-processing.js`. Never duplicate moderation filtering, quote stripping, interaction map building, or card rendering in individual controllers.
+
+The pipeline flow is:
+
+```javascript
+import { postProcessItems, applyTabFilter, loadModerationData, renderItemCards } from "../item-processing.js";
+
+// 1. Get raw items (from MongoDB or Mastodon API)
+// 2. Filter by tab/type (optional)
+const filtered = applyTabFilter(items, tab);
+// 3. Load moderation data once
+const moderation = await loadModerationData(modCollections);
+// 4. Run unified pipeline (filters muted/blocked, strips quote refs, builds interaction map)
+const { items: processed, interactionMap } = await postProcessItems(filtered, { moderation, interactionsCol });
+// 5. For AJAX endpoints, render HTML server-side
+const html = await renderItemCards(processed, request, { interactionMap, mountPath, csrfToken });
+```
+
+**Key functions:**
+- `postProcessItems()` — orchestrates moderation → quote stripping → interaction map
+- `applyModerationFilters()` — filters items by muted URLs, keywords, blocked URLs
+- `stripQuoteReferences()` — removes inline `RE: <link>` paragraphs when quote embed exists
+- `buildInteractionMap()` — queries `ap_interactions` for like/boost state per item
+- `applyTabFilter()` — filters items by type tab (notes, articles, replies, boosts, media)
+- `renderItemCards()` — server-side Nunjucks rendering of `ap-item-card.njk` for AJAX responses
+- `loadModerationData()` — convenience wrapper to load muted/blocked data from MongoDB
+
+**If you add a new view that shows timeline items, use this pipeline.** Do not inline the logic.
+
+### 24. Unified Infinite Scroll Alpine Component
+
+All views with infinite scroll use a single `apInfiniteScroll` Alpine.js component (in `assets/reader-infinite-scroll.js`), parameterized via data attributes on the container element:
+
+```html
+<div class="ap-load-more"
+  data-cursor="{{ cursor }}"
+  data-api-url="{{ mountPath }}/admin/reader/api/timeline"
+  data-cursor-param="before"        <!-- query param name sent to API -->
+  data-cursor-field="before"         <!-- response JSON field for next cursor -->
+  data-timeline-id="ap-timeline"     <!-- DOM ID to append HTML into -->
+  data-extra-params='{{ extraJson }}'  <!-- JSON object of additional query params -->
+  data-hide-pagination="pagination-id" <!-- optional: ID of no-JS pagination to hide -->
+  x-data="apInfiniteScroll()"
+  x-init="init()">
+```
+
+**Do not create separate scroll components for new views.** Configure the existing one with appropriate data attributes. The explore view uses `data-cursor-param="max_id"` and `data-cursor-field="maxId"` (Mastodon API conventions), while the reader uses `data-cursor-param="before"` and `data-cursor-field="before"`.
+
+### 25. Quote Embeds and Enrichment
+
+Posts that quote another post (Mastodon quote feature via FEP-044f) are rendered with an embedded card showing the quoted post's author, content, and timestamp. The data flow:
+
+1. **Ingest:** `extractObjectData()` reads `object.quoteUrl` (Fedify reads `as:quoteUrl`, `misskey:_misskey_quote`, `fedibird:quoteUri`)
+2. **Enrichment:** `fetchAndStoreQuote()` in `og-unfurl.js` fetches the quoted post via `ctx.lookupObject()`, extracts data with `extractObjectData()`, and stores it as `quote` on the timeline item
+3. **On-demand:** `post-detail.js` fetches quotes on demand for items that have `quoteUrl` but no stored `quote` data (pre-existing items)
+4. **Rendering:** `partials/ap-quote-embed.njk` renders the embedded card; `stripQuoteReferences()` removes the inline `RE: <link>` paragraph to avoid duplication
+
 ## Date Handling Convention
 
 **All dates MUST be stored as ISO 8601 strings.** This is mandatory across all Indiekit plugins.
@@ -259,10 +332,19 @@ On restart, `refollow:pending` entries are reset to `import` to prevent stale cl
 | `*` | `{mount}/users/*`, `{mount}/inbox` | Fedify (actor, inbox, outbox, collections) | No (HTTP Sig) |
 | `GET` | `{mount}/` | Dashboard | Yes (IndieAuth) |
 | `GET` | `{mount}/admin/reader` | Timeline reader | Yes |
+| `GET` | `{mount}/admin/reader/explore` | Explore public Mastodon timelines | Yes |
+| `GET` | `{mount}/admin/reader/explore/hashtag` | Cross-instance hashtag search | Yes |
+| `GET` | `{mount}/admin/reader/tag` | Tag timeline (posts by hashtag) | Yes |
+| `GET` | `{mount}/admin/reader/post` | Post detail view | Yes |
 | `GET` | `{mount}/admin/reader/notifications` | Notifications | Yes |
+| `GET` | `{mount}/admin/reader/api/timeline` | AJAX timeline API (infinite scroll) | Yes |
+| `GET` | `{mount}/admin/reader/api/timeline/count-new` | New post count API (polling) | Yes |
+| `POST` | `{mount}/admin/reader/api/timeline/mark-read` | Mark posts as read API | Yes |
+| `GET` | `{mount}/admin/reader/api/explore` | AJAX explore API (infinite scroll) | Yes |
 | `POST` | `{mount}/admin/reader/compose` | Compose reply | Yes |
 | `POST` | `{mount}/admin/reader/like,unlike,boost,unboost` | Interactions | Yes |
 | `POST` | `{mount}/admin/reader/follow,unfollow` | Follow/unfollow | Yes |
+| `POST` | `{mount}/admin/reader/follow-tag,unfollow-tag` | Follow/unfollow hashtag | Yes |
 | `GET` | `{mount}/admin/reader/profile` | Remote profile view | Yes |
 | `GET` | `{mount}/admin/reader/moderation` | Moderation dashboard | Yes |
 | `POST` | `{mount}/admin/reader/mute,unmute,block,unblock` | Moderation actions | Yes |

@@ -14,13 +14,23 @@ ActivityPub federation endpoint for [Indiekit](https://getindiekit.com), built o
 - Configurable actor type (Person, Service, Organization, Group)
 
 **Reader**
-- Timeline view showing posts from followed accounts
+- Timeline view showing posts from followed accounts with tab filtering (notes, articles, replies, boosts, media)
+- Explore view — browse public timelines from any Mastodon-compatible instance
+- Cross-instance hashtag search — search a hashtag across multiple fediverse instances
+- Tag timeline — view and follow/unfollow specific hashtags
+- Post detail view with threaded context
+- Quote post embeds — quoted posts render as inline cards with author, content, and timestamp (FEP-044f, Misskey, Fedibird formats)
+- Link preview cards via Open Graph metadata unfurling
 - Notifications for likes, boosts, follows, mentions, and replies
 - Compose form with dual-path posting (quick AP reply or Micropub blog post)
 - Native interactions (like, boost, reply, follow/unfollow from the reader)
 - Remote actor profile pages
 - Content warnings and sensitive content handling
 - Media display (images, video, audio)
+- Infinite scroll with IntersectionObserver-based auto-loading
+- New post banner — polls for new items and offers one-click loading
+- Read tracking — marks posts as read on scroll, with unread filter toggle
+- Popular accounts autocomplete in the fediverse lookup bar
 - Configurable timeline retention
 
 **Moderation**
@@ -220,7 +230,11 @@ All admin pages are behind IndieAuth authentication:
 | Page | Path | Description |
 |---|---|---|
 | Dashboard | `/activitypub` | Overview with follower/following counts, recent activity |
-| Reader | `/activitypub/admin/reader` | Timeline from followed accounts |
+| Reader | `/activitypub/admin/reader` | Timeline from followed accounts (tabbed: notes, articles, replies, boosts, media) |
+| Explore | `/activitypub/admin/reader/explore` | Browse public timelines from Mastodon-compatible instances |
+| Hashtag Explore | `/activitypub/admin/reader/explore/hashtag` | Search a hashtag across multiple fediverse instances |
+| Tag Timeline | `/activitypub/admin/reader/tag?tag=name` | Posts filtered by a specific hashtag, with follow/unfollow |
+| Post Detail | `/activitypub/admin/reader/post?url=...` | Single post view with quote embeds and link previews |
 | Notifications | `/activitypub/admin/reader/notifications` | Likes, boosts, follows, mentions, replies |
 | Compose | `/activitypub/admin/reader/compose` | Reply composer (quick AP or Micropub) |
 | Moderation | `/activitypub/admin/reader/moderation` | Muted/blocked accounts and keywords |
@@ -329,6 +343,7 @@ This is not a bug — Fedify requires explicit opt-in for signed fetches. But it
 - **Single actor** — One fediverse identity per Indiekit instance
 - **No Authorized Fetch enforcement** — `.authorize()` disabled on actor dispatcher (see workarounds above)
 - **No image upload in reader** — Compose form is text-only
+- **No custom emoji rendering** — Custom emoji shortcodes display as text
 - **In-process queue without Redis** — Activities may be lost on restart
 
 ## License
