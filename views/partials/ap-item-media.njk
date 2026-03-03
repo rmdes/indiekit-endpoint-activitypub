@@ -6,14 +6,23 @@
   {% set extraCount = item.photo.length - 4 %}
   {% set totalPhotos = item.photo.length %}
   <div x-data="{ lightbox: false, idx: 0 }" class="ap-card__gallery ap-card__gallery--{{ displayCount }}">
-    {% for photoUrl in item.photo %}
+    {% for photo in item.photo %}
+      {# Support both old string format and new object format #}
+      {% set photoSrc = photo.url if photo.url else photo %}
+      {% set photoAlt = photo.alt if photo.alt else "" %}
       {% if loop.index0 < 4 %}
-        <button type="button" @click="idx = {{ loop.index0 }}; lightbox = true" class="ap-card__gallery-link{% if loop.index0 == 3 and extraCount > 0 %} ap-card__gallery-link--more{% endif %}">
-          <img src="{{ photoUrl }}" alt="" loading="lazy">
-          {% if loop.index0 == 3 and extraCount > 0 %}
-            <span class="ap-card__gallery-more">+{{ extraCount }}</span>
+        <div class="ap-card__gallery-item" x-data="{ showAlt: false }">
+          <button type="button" @click="idx = {{ loop.index0 }}; lightbox = true" class="ap-card__gallery-link{% if loop.index0 == 3 and extraCount > 0 %} ap-card__gallery-link--more{% endif %}">
+            <img src="{{ photoSrc }}" alt="{{ photoAlt }}" loading="lazy">
+            {% if loop.index0 == 3 and extraCount > 0 %}
+              <span class="ap-card__gallery-more">+{{ extraCount }}</span>
+            {% endif %}
+          </button>
+          {% if photoAlt %}
+            <button type="button" class="ap-media__alt-badge" @click.stop="showAlt = !showAlt" :aria-expanded="showAlt">ALT</button>
+            <div class="ap-media__alt-text" x-show="showAlt" x-cloak @click.stop>{{ photoAlt }}</div>
           {% endif %}
-        </button>
+        </div>
       {% endif %}
     {% endfor %}
 
@@ -24,7 +33,9 @@
         {% if totalPhotos > 1 %}
           <button type="button" @click="idx = (idx - 1 + {{ totalPhotos }}) % {{ totalPhotos }}" class="ap-lightbox__prev" aria-label="Previous image">&lsaquo;</button>
         {% endif %}
-        <img :src="[{% for p in item.photo %}'{{ p }}'{% if not loop.last %},{% endif %}{% endfor %}][idx]" class="ap-lightbox__img" alt="">
+        <img :src="[{% for photo in item.photo %}'{{ photo.url if photo.url else photo }}'{% if not loop.last %},{% endif %}{% endfor %}][idx]"
+             :alt="[{% for photo in item.photo %}'{{ (photo.alt if photo.alt else '') | replace(\"'\", \"\\'\") }}'{% if not loop.last %},{% endif %}{% endfor %}][idx]"
+             class="ap-lightbox__img">
         {% if totalPhotos > 1 %}
           <button type="button" @click="idx = (idx + 1) % {{ totalPhotos }}" class="ap-lightbox__next" aria-label="Next image">&rsaquo;</button>
           <div class="ap-lightbox__counter" x-text="(idx + 1) + ' / ' + {{ totalPhotos }}"></div>

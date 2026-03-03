@@ -2537,3 +2537,45 @@
   margin: 0 0.05em;
 }
 
+/* Gallery items — positioned for ALT badge overlay */
+.ap-card__gallery-item {
+  position: relative;
+}
+
+/* ALT text badges */
+.ap-media__alt-badge {
+  position: absolute;
+  bottom: 0.5rem;
+  left: 0.5rem;
+  background: rgba(0, 0, 0, 0.7);
+  color: white;
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 0.15rem 0.35rem;
+  border-radius: var(--border-radius-small);
+  border: none;
+  cursor: pointer;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  z-index: 1;
+}
+
+.ap-media__alt-badge:hover {
+  background: rgba(0, 0, 0, 0.9);
+}
+
+.ap-media__alt-text {
+  position: absolute;
+  bottom: 2.2rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  background: rgba(0, 0, 0, 0.85);
+  color: white;
+  font-size: var(--font-size-s);
+  padding: 0.5rem;
+  border-radius: var(--border-radius-small);
+  max-height: 8rem;
+  overflow-y: auto;
+  z-index: 2;
+}
+
