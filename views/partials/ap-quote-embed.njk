@@ -26,8 +26,14 @@
       {% endif %}
       {% if item.quote.photo and item.quote.photo.length > 0 %}
         {% set qPhoto = item.quote.photo[0] %}
+        {% set qFocusStyle = "" %}
+        {% if qPhoto.focus and qPhoto.focus.x != null and qPhoto.focus.y != null %}
+          {% set qFpX = ((qPhoto.focus.x + 1) / 2 * 100) %}
+          {% set qFpY = ((1 - (qPhoto.focus.y + 1) / 2) * 100) %}
+          {% set qFocusStyle = "object-position:" + qFpX + "% " + qFpY + "%;" %}
+        {% endif %}
         <div class="ap-quote-embed__media">
-          <img src="{{ qPhoto.url if qPhoto.url else qPhoto }}" alt="{{ qPhoto.alt if qPhoto.alt else '' }}" loading="lazy" class="ap-quote-embed__photo">
+          <img src="{{ qPhoto.url if qPhoto.url else qPhoto }}" alt="{{ qPhoto.alt if qPhoto.alt else '' }}" loading="lazy" class="ap-quote-embed__photo"{% if qFocusStyle %} style="{{ qFocusStyle }}"{% endif %}>
         </div>
       {% endif %}
     </a>

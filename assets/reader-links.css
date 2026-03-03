@@ -15,16 +15,16 @@
 .ap-link-preview {
   display: flex;
   overflow: hidden;
-  border-radius: var(--border-radius-small);
+  border-radius: 8px;
   border: 1px solid var(--color-neutral-lighter);
   background-color: var(--color-offset);
   text-decoration: none;
   color: inherit;
-  transition: border-color 0.2s ease;
+  transition: border-color 0.15s ease;
 }
 
 .ap-link-preview:hover {
-  border-color: var(--color-primary);
+  border-color: var(--color-outline-variant);
 }
 
 /* Text content area (left side) */

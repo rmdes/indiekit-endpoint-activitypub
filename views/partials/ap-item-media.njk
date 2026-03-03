@@ -10,10 +10,18 @@
       {# Support both old string format and new object format #}
       {% set photoSrc = photo.url if photo.url else photo %}
       {% set photoAlt = photo.alt if photo.alt else "" %}
+      {% set photoBlurhash = photo.blurhash if photo.blurhash else "" %}
+      {# Focus-point cropping: convert -1..1 range to CSS object-position percentages #}
+      {% set focusStyle = "" %}
+      {% if photo.focus and photo.focus.x != null and photo.focus.y != null %}
+        {% set fpX = ((photo.focus.x + 1) / 2 * 100) %}
+        {% set fpY = ((1 - (photo.focus.y + 1) / 2) * 100) %}
+        {% set focusStyle = "object-position:" + fpX + "% " + fpY + "%;" %}
+      {% endif %}
       {% if loop.index0 < 4 %}
         <div class="ap-card__gallery-item" x-data="{ showAlt: false }">
           <button type="button" @click="idx = {{ loop.index0 }}; lightbox = true" class="ap-card__gallery-link{% if loop.index0 == 3 and extraCount > 0 %} ap-card__gallery-link--more{% endif %}">
-            <img src="{{ photoSrc }}" alt="{{ photoAlt }}" loading="lazy">
+            <img src="{{ photoSrc }}" alt="{{ photoAlt }}" loading="lazy"{% if focusStyle %} style="{{ focusStyle }}"{% endif %}{% if photoBlurhash %} data-blurhash="{{ photoBlurhash }}"{% endif %}>
             {% if loop.index0 == 3 and extraCount > 0 %}
               <span class="ap-card__gallery-more">+{{ extraCount }}</span>
             {% endif %}

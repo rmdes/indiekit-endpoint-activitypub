@@ -150,10 +150,11 @@
 .ap-card {
   background: var(--color-offset);
   border: var(--border-width-thin) solid var(--color-outline);
-  border-left: var(--border-width-thickest) solid var(--color-outline);
-  border-radius: var(--border-radius-small);
+  border-left: 3px solid var(--color-outline);
+  border-radius: 8px;
   overflow: hidden;
   padding: var(--space-m);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04);
   transition:
     box-shadow 0.2s ease,
     border-color 0.2s ease;
@@ -162,6 +163,7 @@
 .ap-card:hover {
   border-color: var(--color-outline-variant);
   border-left-color: var(--color-outline-variant);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 /* ==========================================================================
@@ -263,9 +265,9 @@
   border: var(--border-width-thin) solid var(--color-outline);
   border-radius: 50%;
   flex-shrink: 0;
-  height: 40px;
+  height: 44px;
   object-fit: cover;
-  width: 40px;
+  width: 44px;
 }
 
 .ap-card__avatar--default {
@@ -282,10 +284,12 @@
   display: flex;
   flex-direction: column;
   flex: 1;
+  gap: 1px;
   min-width: 0;
 }
 
 .ap-card__author-name {
+  font-size: 0.95em;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -327,7 +331,7 @@
 .ap-card__timestamp {
   color: var(--color-on-offset);
   flex-shrink: 0;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-s);
 }
 
 .ap-card__edited {
@@ -374,7 +378,7 @@
 
 .ap-card__content {
   color: var(--color-on-background);
-  line-height: var(--line-height-prose);
+  line-height: calc(4 / 3 * 1em);
   margin-bottom: var(--space-s);
   overflow-wrap: break-word;
   word-break: break-word;
@@ -504,7 +508,7 @@
    ========================================================================== */
 
 .ap-card__gallery {
-  border-radius: var(--border-radius-small);
+  border-radius: 6px;
   display: grid;
   gap: 2px;
   margin-bottom: var(--space-s);
@@ -524,9 +528,14 @@
 .ap-card__gallery img {
   background: var(--color-offset-variant);
   display: block;
-  height: 200px;
+  height: 220px;
   object-fit: cover;
   width: 100%;
+  transition: filter 0.2s ease;
+}
+
+.ap-card__gallery-link:hover img {
+  filter: brightness(0.92);
 }
 
 .ap-card__gallery-link--more::after {
@@ -557,7 +566,7 @@
 
 .ap-card__gallery--1 img {
   height: auto;
-  max-height: 400px;
+  max-height: 500px;
 }
 
 /* 2 photos — side by side */
@@ -761,60 +770,86 @@
   border-top: var(--border-width-thin) solid var(--color-outline);
   display: flex;
   flex-wrap: wrap;
-  gap: var(--space-s);
+  gap: 2px;
   padding-top: var(--space-s);
 }
 
 .ap-card__action {
   align-items: center;
   background: transparent;
-  border: var(--border-width-thin) solid var(--color-outline);
-  border-radius: var(--border-radius-small);
+  border: 0;
+  border-radius: 6px;
   color: var(--color-on-offset);
   cursor: pointer;
   display: inline-flex;
   font-size: var(--font-size-s);
-  gap: var(--space-xs);
-  padding: var(--space-xs) var(--space-s);
+  gap: 0.3em;
+  min-height: 36px;
+  padding: 0.25em 0.6em;
   text-decoration: none;
-  transition: all 0.2s ease;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
 }
 
 .ap-card__action:hover {
   background: var(--color-offset-variant);
-  border-color: var(--color-outline-variant);
   color: var(--color-on-background);
 }
 
-/* Active interaction states — using Indiekit's color palette */
+/* Color-coded hover states per action type */
+.ap-card__action--reply:hover {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+.ap-card__action--boost:hover {
+  background: color-mix(in srgb, var(--color-green50) 12%, transparent);
+  color: var(--color-green50);
+}
+
+.ap-card__action--like:hover {
+  background: color-mix(in srgb, var(--color-red45) 12%, transparent);
+  color: var(--color-red45);
+}
+
+.ap-card__action--link:hover {
+  background: var(--color-offset-variant);
+  color: var(--color-on-background);
+}
+
+.ap-card__action--save:hover {
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
+}
+
+/* Active interaction states */
 .ap-card__action--like.ap-card__action--active {
-  background: var(--color-red90);
-  border-color: var(--color-red45);
+  background: color-mix(in srgb, var(--color-red45) 12%, transparent);
   color: var(--color-red45);
 }
 
 .ap-card__action--boost.ap-card__action--active {
-  background: var(--color-green90);
-  border-color: var(--color-green50);
+  background: color-mix(in srgb, var(--color-green50) 12%, transparent);
   color: var(--color-green50);
 }
 
 .ap-card__action--save.ap-card__action--active {
-  background: #4a9eff22;
-  border-color: #4a9eff;
-  color: #4a9eff;
+  background: color-mix(in srgb, var(--color-primary) 12%, transparent);
+  color: var(--color-primary);
 }
 
 .ap-card__action:disabled {
   cursor: wait;
-  opacity: 0.6;
+  opacity: 0.5;
 }
 
 /* Interaction counts */
 .ap-card__count {
   font-size: var(--font-size-xs);
-  color: var(--color-on-offset);
-  margin-left: 0.25rem;
+  color: inherit;
+  opacity: 0.7;
+  margin-left: 0.1em;
   font-variant-numeric: tabular-nums;
 }
 
@@ -2536,9 +2571,14 @@
 
 .ap-quote-embed {
   border: var(--border-width-thin) solid var(--color-outline);
-  border-radius: var(--border-radius-small);
+  border-radius: 8px;
   margin-top: var(--space-s);
   overflow: hidden;
+  transition: border-color 0.15s ease;
+}
+
+.ap-quote-embed:hover {
+  border-color: var(--color-outline-variant);
 }
 
 .ap-quote-embed--pending {
@@ -2553,7 +2593,7 @@
 }
 
 .ap-quote-embed__link:hover {
-  background: var(--color-offset);
+  background: color-mix(in srgb, var(--color-offset) 50%, transparent);
 }
 
 .ap-quote-embed__author {
@@ -2618,8 +2658,8 @@
 .ap-quote-embed__content {
   color: var(--color-on-background);
   font-size: var(--font-size-s);
-  line-height: 1.5;
-  max-height: calc(1.5em * 6);
+  line-height: calc(4 / 3 * 1em);
+  max-height: calc(1.333em * 6);
   overflow: hidden;
 }
 
