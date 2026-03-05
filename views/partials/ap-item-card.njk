@@ -230,7 +230,7 @@
         if (this.error) setTimeout(() => this.error = '', 3000);
       }
     }">
-    <a href="{{ mountPath }}/admin/reader/compose?replyTo={{ itemUid | urlencode }}"
+    <a href="{{ mountPath }}/admin/reader/compose?replyTo={{ (itemUrl or itemUid) | urlencode }}"
        class="ap-card__action ap-card__action--reply"
        title="{{ __('activitypub.reader.actions.reply') }}">
       ↩ {{ __("activitypub.reader.actions.reply") }}{% if replyCount != null %}<span class="ap-card__count">{{ replyCount }}</span>{% endif %}
