@@ -13,9 +13,9 @@
         </div>
       {% endif %}
       {% if replyContext.content and (replyContext.content.html or replyContext.content.text) %}
-        <blockquote class="ap-compose__context-text">
+        <div class="ap-card__content ap-compose__context-text">
           {{ replyContext.content.html | safe if replyContext.content.html else replyContext.content.text | truncate(300) }}
-        </blockquote>
+        </div>
       {% endif %}
       <a href="{{ replyTo }}" class="ap-compose__context-link" target="_blank" rel="noopener">{{ replyTo }}</a>
     </div>
