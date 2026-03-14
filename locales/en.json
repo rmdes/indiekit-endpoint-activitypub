@@ -145,7 +145,13 @@
       "syndicateLabel": "Syndicate to",
       "submitMicropub": "Post reply",
       "cancel": "Cancel",
-      "errorEmpty": "Reply content cannot be empty"
+      "errorEmpty": "Reply content cannot be empty",
+      "visibilityLabel": "Visibility",
+      "visibilityPublic": "Public",
+      "visibilityUnlisted": "Unlisted",
+      "visibilityFollowers": "Followers only",
+      "cwLabel": "Content warning",
+      "cwPlaceholder": "Write your warning here…"
     },
     "notifications": {
       "title": "Notifications",

@@ -27,6 +27,18 @@
       <input type="hidden" name="in-reply-to" value="{{ replyTo }}">
     {% endif %}
 
+    {# Content warning toggle + summary #}
+    <div class="ap-compose__cw">
+      <label class="ap-compose__cw-toggle">
+        <input type="checkbox" name="cw-enabled" id="cw-toggle"
+          onchange="document.getElementById('cw-text').style.display = this.checked ? 'block' : 'none'">
+        {{ __("activitypub.compose.cwLabel") }}
+      </label>
+      <input type="text" name="summary" id="cw-text" class="ap-compose__cw-input"
+        placeholder="{{ __('activitypub.compose.cwPlaceholder') }}"
+        style="display: none">
+    </div>
+
     {# Content textarea #}
     <div class="ap-compose__editor">
       <textarea name="content" class="ap-compose__textarea"
@@ -34,6 +46,23 @@
         placeholder="{{ __('activitypub.compose.placeholder') }}"
         required></textarea>
     </div>
+
+    {# Visibility #}
+    <fieldset class="ap-compose__visibility">
+      <legend>{{ __("activitypub.compose.visibilityLabel") }}</legend>
+      <label class="ap-compose__visibility-option">
+        <input type="radio" name="visibility" value="public" checked>
+        {{ __("activitypub.compose.visibilityPublic") }}
+      </label>
+      <label class="ap-compose__visibility-option">
+        <input type="radio" name="visibility" value="unlisted">
+        {{ __("activitypub.compose.visibilityUnlisted") }}
+      </label>
+      <label class="ap-compose__visibility-option">
+        <input type="radio" name="visibility" value="followers">
+        {{ __("activitypub.compose.visibilityFollowers") }}
+      </label>
+    </fieldset>
 
     {# Syndication targets #}
     {% if syndicationTargets.length > 0 %}

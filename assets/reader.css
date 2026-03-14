@@ -1094,6 +1094,58 @@
   outline-offset: -2px;
 }
 
+.ap-compose__cw {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-xs);
+}
+
+.ap-compose__cw-toggle {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-s);
+  color: var(--color-on-offset);
+}
+
+.ap-compose__cw-input {
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  background: var(--color-offset);
+  color: var(--color-on-background);
+  font: inherit;
+  font-size: var(--font-size-s);
+  padding: var(--space-s);
+  width: 100%;
+}
+
+.ap-compose__cw-input:focus {
+  border-color: var(--color-primary);
+  outline: none;
+}
+
+.ap-compose__visibility {
+  border: var(--border-width-thin) solid var(--color-outline);
+  border-radius: var(--border-radius-small);
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-s) var(--space-m);
+  padding: var(--space-m);
+}
+
+.ap-compose__visibility legend {
+  font-weight: 600;
+}
+
+.ap-compose__visibility-option {
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  font-size: var(--font-size-s);
+}
+
 .ap-compose__syndication {
   border: var(--border-width-thin) solid var(--color-outline);
   border-radius: var(--border-radius-small);
