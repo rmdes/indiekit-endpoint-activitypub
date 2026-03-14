@@ -1,0 +1,59 @@
+{% extends "layouts/ap-reader.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+
+{% block readercontent %}
+  {# Error message #}
+  {% if error %}
+    <div class="ap-compose__error">{{ error }}</div>
+  {% endif %}
+
+  {# Reply context — the message being replied to #}
+  {% if replyContext %}
+    <div class="ap-compose__context">
+      <div class="ap-compose__context-label">{{ __("activitypub.messages.replyingTo") }}</div>
+      <div class="ap-compose__context-author">
+        <a href="{{ replyContext.actorUrl }}">{{ replyContext.actorName }}</a>
+      </div>
+      {% if replyContext.content and (replyContext.content.html or replyContext.content.text) %}
+        <div class="ap-card__content ap-compose__context-text">
+          {{ replyContext.content.html | safe if replyContext.content.html else replyContext.content.text | truncate(300) }}
+        </div>
+      {% endif %}
+    </div>
+  {% endif %}
+
+  <form method="post" action="{{ mountPath }}/admin/reader/messages/compose" class="ap-compose__form">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+    {% if replyTo %}
+      <input type="hidden" name="replyTo" value="{{ replyTo }}">
+    {% endif %}
+
+    {# Recipient field #}
+    <div class="ap-compose__field">
+      <label for="dm-to" class="ap-compose__label">{{ __("activitypub.messages.recipientLabel") }}</label>
+      <input type="text" id="dm-to" name="to" value="{{ to }}"
+        class="ap-compose__input"
+        placeholder="{{ __('activitypub.messages.recipientPlaceholder') }}"
+        required
+        autocomplete="off">
+    </div>
+
+    {# Content textarea #}
+    <div class="ap-compose__editor">
+      <textarea name="content" class="ap-compose__textarea"
+        rows="6"
+        placeholder="{{ __('activitypub.messages.placeholder') }}"
+        required></textarea>
+    </div>
+
+    <div class="ap-compose__actions">
+      <button type="submit" class="ap-compose__submit">
+        {{ __("activitypub.messages.send") }}
+      </button>
+      <a href="{{ mountPath }}/admin/reader/messages" class="ap-compose__cancel">
+        {{ __("activitypub.compose.cancel") }}
+      </a>
+    </div>
+  </form>
+{% endblock %}

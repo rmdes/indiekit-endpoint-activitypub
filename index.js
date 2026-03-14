@@ -78,6 +78,14 @@ import {
 } from "./lib/controllers/tabs.js";
 import { hashtagExploreApiController } from "./lib/controllers/hashtag-explore.js";
 import { publicProfileController } from "./lib/controllers/public-profile.js";
+import {
+  messagesController,
+  messageComposeController,
+  submitMessageController,
+  markAllMessagesReadController,
+  clearAllMessagesController,
+  deleteMessageController,
+} from "./lib/controllers/messages.js";
 import { authorizeInteractionController } from "./lib/controllers/authorize-interaction.js";
 import { myProfileController } from "./lib/controllers/my-profile.js";
 import {
@@ -89,6 +97,7 @@ import { startBatchRefollow } from "./lib/batch-refollow.js";
 import { logActivity } from "./lib/activity-log.js";
 import { scheduleCleanup } from "./lib/timeline-cleanup.js";
 import { runSeparateMentionsMigration } from "./lib/migrations/separate-mentions.js";
+import { deleteFederationController } from "./lib/controllers/federation-delete.js";
 
 const defaults = {
   mountPath: "/activitypub",
@@ -110,6 +119,7 @@ const defaults = {
   notificationRetentionDays: 30,
   debugDashboard: false,
   debugPassword: "",
+  defaultVisibility: "public", // "public" | "unlisted" | "followers"
 };
 
 export default class ActivityPubEndpoint {
@@ -141,6 +151,11 @@ export default class ActivityPubEndpoint {
       {
         href: `${this.options.mountPath}/admin/reader/notifications`,
         text: "activitypub.notifications.title",
+        requiresDatabase: true,
+      },
+      {
+        href: `${this.options.mountPath}/admin/reader/messages`,
+        text: "activitypub.messages.title",
         requiresDatabase: true,
       },
       {
@@ -252,6 +267,12 @@ export default class ActivityPubEndpoint {
     router.post("/admin/reader/notifications/mark-read", markAllNotificationsReadController(mp));
     router.post("/admin/reader/notifications/clear", clearAllNotificationsController(mp));
     router.post("/admin/reader/notifications/delete", deleteNotificationController(mp));
+    router.get("/admin/reader/messages", messagesController(mp));
+    router.get("/admin/reader/messages/compose", messageComposeController(mp, this));
+    router.post("/admin/reader/messages/compose", submitMessageController(mp, this));
+    router.post("/admin/reader/messages/mark-read", markAllMessagesReadController(mp));
+    router.post("/admin/reader/messages/clear", clearAllMessagesController(mp));
+    router.post("/admin/reader/messages/delete", deleteMessageController(mp));
     router.get("/admin/reader/compose", composeController(mp, this));
     router.post("/admin/reader/compose", submitComposeController(mp, this));
     router.post("/admin/reader/like", likeController(mp, this));
@@ -290,6 +311,7 @@ export default class ActivityPubEndpoint {
     router.post("/admin/refollow/pause", refollowPauseController(mp, this));
     router.post("/admin/refollow/resume", refollowResumeController(mp, this));
     router.get("/admin/refollow/status", refollowStatusController(mp));
+    router.post("/admin/federation/delete", deleteFederationController(mp, this));
 
     return router;
   }
@@ -357,6 +379,7 @@ export default class ActivityPubEndpoint {
           post.properties,
           actorUrl,
           self._publicationUrl,
+          { visibility: self.options.defaultVisibility },
         );
 
         const object = activity.object || activity;
@@ -451,6 +474,7 @@ export default class ActivityPubEndpoint {
             {
               replyToActorUrl: replyToActor?.url,
               replyToActorHandle: replyToActor?.handle,
+              visibility: self.options.defaultVisibility,
             },
           );
 
@@ -853,6 +877,97 @@ export default class ActivityPubEndpoint {
   }
 
   /**
+   * Send Delete activity to all followers for a removed post.
+   * Mirrors broadcastActorUpdate() pattern: batch delivery with shared inbox dedup.
+   * @param {string} postUrl - Full URL of the deleted post
+   */
+  async broadcastDelete(postUrl) {
+    if (!this._federation) return;
+
+    try {
+      const { Delete } = await import("@fedify/fedify/vocab");
+      const handle = this.options.actor.handle;
+      const ctx = this._federation.createContext(
+        new URL(this._publicationUrl),
+        { handle, publicationUrl: this._publicationUrl },
+      );
+
+      const del = new Delete({
+        actor: ctx.getActorUri(handle),
+        object: new URL(postUrl),
+      });
+
+      const followers = await this._collections.ap_followers
+        .find({})
+        .project({ actorUrl: 1, inbox: 1, sharedInbox: 1 })
+        .toArray();
+
+      const inboxMap = new Map();
+      for (const f of followers) {
+        const key = f.sharedInbox || f.inbox;
+        if (key && !inboxMap.has(key)) {
+          inboxMap.set(key, f);
+        }
+      }
+
+      const uniqueRecipients = [...inboxMap.values()];
+      const BATCH_SIZE = 25;
+      const BATCH_DELAY_MS = 5000;
+      let delivered = 0;
+      let failed = 0;
+
+      console.info(
+        `[ActivityPub] Broadcasting Delete for ${postUrl} to ${uniqueRecipients.length} ` +
+          `unique inboxes (${followers.length} followers)`,
+      );
+
+      for (let i = 0; i < uniqueRecipients.length; i += BATCH_SIZE) {
+        const batch = uniqueRecipients.slice(i, i + BATCH_SIZE);
+        const recipients = batch.map((f) => ({
+          id: new URL(f.actorUrl),
+          inboxId: new URL(f.inbox || f.sharedInbox),
+          endpoints: f.sharedInbox
+            ? { sharedInbox: new URL(f.sharedInbox) }
+            : undefined,
+        }));
+
+        try {
+          await ctx.sendActivity(
+            { identifier: handle },
+            recipients,
+            del,
+            { preferSharedInbox: true },
+          );
+          delivered += batch.length;
+        } catch (error) {
+          failed += batch.length;
+          console.warn(
+            `[ActivityPub] Delete batch ${Math.floor(i / BATCH_SIZE) + 1} failed: ${error.message}`,
+          );
+        }
+
+        if (i + BATCH_SIZE < uniqueRecipients.length) {
+          await new Promise((resolve) => setTimeout(resolve, BATCH_DELAY_MS));
+        }
+      }
+
+      console.info(
+        `[ActivityPub] Delete broadcast complete for ${postUrl}: ${delivered} delivered, ${failed} failed`,
+      );
+
+      await logActivity(this._collections.ap_activities, {
+        direction: "outbound",
+        type: "Delete",
+        actorUrl: this._publicationUrl,
+        objectUrl: postUrl,
+        summary: `Sent Delete for ${postUrl} to ${delivered} inboxes`,
+      }).catch(() => {});
+    } catch (error) {
+      console.warn("[ActivityPub] broadcastDelete failed:", error.message);
+    }
+  }
+
+  /**
    * Build the full actor URL from config.
    * @returns {string}
    */
@@ -885,8 +1000,12 @@ export default class ActivityPubEndpoint {
     Indiekit.addCollection("ap_blocked");
     Indiekit.addCollection("ap_interactions");
     Indiekit.addCollection("ap_followed_tags");
+    // Message collections
+    Indiekit.addCollection("ap_messages");
     // Explore tab collections
     Indiekit.addCollection("ap_explore_tabs");
+    // Reports collection
+    Indiekit.addCollection("ap_reports");
 
     // Store collection references (posts resolved lazily)
     const indiekitCollections = Indiekit.collections;
@@ -906,8 +1025,12 @@ export default class ActivityPubEndpoint {
       ap_blocked: indiekitCollections.get("ap_blocked"),
       ap_interactions: indiekitCollections.get("ap_interactions"),
       ap_followed_tags: indiekitCollections.get("ap_followed_tags"),
+      // Message collections
+      ap_messages: indiekitCollections.get("ap_messages"),
       // Explore tab collections
       ap_explore_tabs: indiekitCollections.get("ap_explore_tabs"),
+      // Reports collection
+      ap_reports: indiekitCollections.get("ap_reports"),
       get posts() {
         return indiekitCollections.get("posts");
       },
@@ -993,6 +1116,35 @@ export default class ActivityPubEndpoint {
         );
       }
 
+      // Message indexes
+      this._collections.ap_messages.createIndex(
+        { uid: 1 },
+        { unique: true, background: true },
+      );
+      this._collections.ap_messages.createIndex(
+        { published: -1 },
+        { background: true },
+      );
+      this._collections.ap_messages.createIndex(
+        { read: 1 },
+        { background: true },
+      );
+      this._collections.ap_messages.createIndex(
+        { conversationId: 1, published: -1 },
+        { background: true },
+      );
+      this._collections.ap_messages.createIndex(
+        { direction: 1 },
+        { background: true },
+      );
+      // TTL index for message cleanup (reuse notification retention)
+      if (notifRetention > 0) {
+        this._collections.ap_messages.createIndex(
+          { createdAt: 1 },
+          { expireAfterSeconds: notifRetention * 86_400 },
+        );
+      }
+
       // Muted collection — sparse unique indexes (allow multiple null values)
       this._collections.ap_muted
         .dropIndex("url_1")
@@ -1052,6 +1204,22 @@ export default class ActivityPubEndpoint {
       // Order index for efficient sorting of tab bar
       this._collections.ap_explore_tabs.createIndex(
         { order: 1 },
+        { background: true },
+      );
+
+      // ap_reports indexes
+      if (notifRetention > 0) {
+        this._collections.ap_reports.createIndex(
+          { createdAt: 1 },
+          { expireAfterSeconds: notifRetention * 86_400 },
+        );
+      }
+      this._collections.ap_reports.createIndex(
+        { reporterUrl: 1 },
+        { background: true },
+      );
+      this._collections.ap_reports.createIndex(
+        { reportedUrls: 1 },
         { background: true },
       );
     } catch {

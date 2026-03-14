@@ -100,6 +100,11 @@
 
         {# Media hidden behind CW #}
         {% include "partials/ap-item-media.njk" %}
+
+        {# Poll options #}
+        {% if item.type == "question" or (item.pollOptions and item.pollOptions.length > 0) %}
+          {% include "partials/ap-poll-options.njk" %}
+        {% endif %}
       </div>
     </div>
   {% else %}
@@ -118,6 +123,11 @@
 
     {# Media visible directly #}
     {% include "partials/ap-item-media.njk" %}
+
+    {# Poll options #}
+    {% if item.type == "question" or (item.pollOptions and item.pollOptions.length > 0) %}
+      {% include "partials/ap-poll-options.njk" %}
+    {% endif %}
   {% endif %}
 
   {# Mentions and hashtags #}

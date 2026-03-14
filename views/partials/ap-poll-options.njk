@@ -1,0 +1,30 @@
+{# Poll options partial — renders vote results for Question-type posts #}
+{% if item.pollOptions and item.pollOptions.length > 0 %}
+  {% set totalVotes = 0 %}
+  {% for opt in item.pollOptions %}
+    {% set totalVotes = totalVotes + opt.votes %}
+  {% endfor %}
+
+  <div class="ap-poll">
+    {% for opt in item.pollOptions %}
+      {% set pct = (totalVotes > 0) and ((opt.votes / totalVotes * 100) | round) or 0 %}
+      <div class="ap-poll__option">
+        <div class="ap-poll__bar" style="width: {{ pct }}%"></div>
+        <span class="ap-poll__label">{{ opt.name }}</span>
+        <span class="ap-poll__votes">{{ pct }}%</span>
+      </div>
+    {% endfor %}
+    <div class="ap-poll__footer">
+      {% if item.votersCount > 0 %}
+        {{ item.votersCount }} {{ __("activitypub.poll.voters") }}
+      {% elif totalVotes > 0 %}
+        {{ totalVotes }} {{ __("activitypub.poll.votes") }}
+      {% endif %}
+      {% if item.pollClosed %}
+        · {{ __("activitypub.poll.closed") }}
+      {% elif item.pollEndTime %}
+        · {{ __("activitypub.poll.endsAt") }} <time datetime="{{ item.pollEndTime }}">{{ item.pollEndTime | date("PPp") }}</time>
+      {% endif %}
+    </div>
+  </div>
+{% endif %}

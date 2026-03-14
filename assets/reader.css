@@ -1320,6 +1320,181 @@
   color: var(--color-on-background);
 }
 
+.ap-notification__handle {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  margin-left: var(--space-xs);
+}
+
+.ap-notifications__btn--primary {
+  background: var(--color-primary);
+  color: var(--color-on-primary, #fff);
+  text-decoration: none;
+}
+
+.ap-notifications__btn--primary:hover {
+  opacity: 0.9;
+}
+
+/* ==========================================================================
+   Messages
+   ========================================================================== */
+
+.ap-messages__layout {
+  display: grid;
+  grid-template-columns: 240px 1fr;
+  gap: var(--space-m);
+  min-height: 300px;
+}
+
+.ap-messages__sidebar {
+  border-right: var(--border-width-thin) solid var(--color-outline);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding-right: var(--space-m);
+  overflow-y: auto;
+  max-height: 70vh;
+}
+
+.ap-messages__partner {
+  align-items: center;
+  border-radius: var(--border-radius-small);
+  color: var(--color-on-background);
+  display: flex;
+  gap: var(--space-s);
+  padding: var(--space-s);
+  text-decoration: none;
+  transition: background 0.15s ease;
+}
+
+.ap-messages__partner:hover {
+  background: var(--color-offset);
+}
+
+.ap-messages__partner--active {
+  background: var(--color-offset);
+  border-left: 3px solid var(--color-primary);
+  font-weight: var(--font-weight-bold);
+}
+
+.ap-messages__partner-avatar {
+  flex-shrink: 0;
+  height: 32px;
+  position: relative;
+  width: 32px;
+}
+
+.ap-messages__partner-avatar img {
+  border-radius: 50%;
+  height: 100%;
+  object-fit: cover;
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  z-index: 1;
+}
+
+.ap-messages__partner-initial {
+  align-items: center;
+  background: var(--color-offset-variant);
+  border-radius: 50%;
+  color: var(--color-on-offset);
+  display: flex;
+  font-size: var(--font-size-s);
+  height: 100%;
+  justify-content: center;
+  width: 100%;
+}
+
+.ap-messages__partner-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  overflow: hidden;
+}
+
+.ap-messages__partner-name {
+  font-size: var(--font-size-s);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ap-messages__partner-handle {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.ap-messages__content {
+  min-width: 0;
+}
+
+.ap-message--outbound {
+  border-left: 3px solid var(--color-primary);
+}
+
+.ap-message .ap-notification__time {
+  padding-right: var(--space-l);
+}
+
+.ap-message__direction {
+  color: var(--color-on-offset);
+  font-size: var(--font-size-s);
+  margin-right: var(--space-xs);
+}
+
+.ap-message__content {
+  color: var(--color-on-background);
+  font-size: var(--font-size-s);
+  line-height: 1.5;
+  margin-top: var(--space-xs);
+}
+
+.ap-message__content p {
+  margin: 0 0 var(--space-xs);
+}
+
+.ap-message__content p:last-child {
+  margin-bottom: 0;
+}
+
+/* Inline mention links in DM content (Mastodon wraps @user in span inside a link) */
+.ap-message__content .h-card,
+.ap-message__content a.mention,
+.ap-message__content a span {
+  display: inline;
+}
+
+.ap-message__content a {
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 640px) {
+  .ap-messages__layout {
+    grid-template-columns: 1fr;
+  }
+
+  .ap-messages__sidebar {
+    border-bottom: var(--border-width-thin) solid var(--color-outline);
+    border-right: none;
+    flex-direction: row;
+    max-height: none;
+    overflow-x: auto;
+    padding-bottom: var(--space-s);
+    padding-right: 0;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .ap-messages__partner {
+    flex-shrink: 0;
+    white-space: nowrap;
+  }
+}
+
 /* ==========================================================================
    Remote Profile
    ========================================================================== */
@@ -2819,6 +2994,53 @@
   max-height: 8rem;
   overflow-y: auto;
   z-index: 2;
+}
+
+/* ==========================================================================
+   Poll / Question
+   ========================================================================== */
+
+.ap-poll {
+  margin-top: var(--space-s);
+}
+
+.ap-poll__option {
+  position: relative;
+  padding: var(--space-xs) var(--space-s);
+  margin-bottom: var(--space-xs);
+  border-radius: var(--border-radius-small);
+  background: var(--color-offset);
+  overflow: hidden;
+}
+
+.ap-poll__bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  background: var(--color-primary);
+  opacity: 0.15;
+  border-radius: var(--border-radius-small);
+}
+
+.ap-poll__label {
+  position: relative;
+  font-size: var(--font-size-s);
+  color: var(--color-on-background);
+}
+
+.ap-poll__votes {
+  position: relative;
+  float: right;
+  font-size: var(--font-size-s);
+  font-weight: 600;
+  color: var(--color-on-offset);
+}
+
+.ap-poll__footer {
+  font-size: var(--font-size-xs);
+  color: var(--color-on-offset);
+  margin-top: var(--space-xs);
 }
 
 /* ==========================================================================

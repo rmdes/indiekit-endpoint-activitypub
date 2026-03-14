@@ -1,0 +1,65 @@
+{# Message card partial — inbound/outbound DM display #}
+
+<div class="ap-notification ap-message{% if not item.read %} ap-notification--unread{% endif %}{% if item.direction == 'outbound' %} ap-message--outbound{% endif %}">
+  {# Dismiss button #}
+  <form method="post" action="{{ mountPath }}/admin/reader/messages/delete" class="ap-notification__dismiss">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+    <input type="hidden" name="uid" value="{{ item.uid }}">
+    <button type="submit" class="ap-notification__dismiss-btn" title="{{ __('activitypub.messages.delete') }}">&times;</button>
+  </form>
+
+  {# Avatar — outbound: our profile photo, inbound: sender's photo #}
+  <div class="ap-notification__avatar-wrap" data-avatar-fallback>
+    {% if item.direction == "outbound" and myProfile and myProfile.icon %}
+      <img src="{{ myProfile.icon }}" alt="{{ myProfile.name or 'Me' }}" class="ap-notification__avatar" loading="lazy" crossorigin="anonymous">
+      <span class="ap-notification__avatar ap-notification__avatar--default" aria-hidden="true">{{ (myProfile.name or "M")[0] | upper }}</span>
+    {% else %}
+      {% if item.actorPhoto %}
+      <img src="{{ item.actorPhoto }}" alt="{{ item.actorName }}" class="ap-notification__avatar" loading="lazy" crossorigin="anonymous">
+      {% endif %}
+      <span class="ap-notification__avatar ap-notification__avatar--default" aria-hidden="true">{{ item.actorName[0] | upper if item.actorName else "?" }}</span>
+    {% endif %}
+    <span class="ap-notification__type-badge">
+      {% if item.direction == "outbound" %}↗{% else %}✉{% endif %}
+    </span>
+  </div>
+
+  {# Message body #}
+  <div class="ap-notification__body">
+    <span class="ap-notification__actor">
+      {% if item.direction == "outbound" %}
+        <span class="ap-message__direction">{{ __("activitypub.messages.sentTo") }}</span>
+      {% endif %}
+      <a href="{{ item.actorUrl }}">{{ item.actorName }}</a>
+      {% if item.actorHandle %}
+        <span class="ap-notification__handle">{{ item.actorHandle }}</span>
+      {% endif %}
+    </span>
+
+    {% if item.content and item.content.html %}
+      <div class="ap-message__content">
+        {{ item.content.html | safe }}
+      </div>
+    {% elif item.content and item.content.text %}
+      <div class="ap-message__content">
+        {{ item.content.text }}
+      </div>
+    {% endif %}
+
+    {# Reply action (only for inbound messages) #}
+    {% if item.direction == "inbound" %}
+      <div class="ap-notification__actions">
+        <a href="{{ mountPath }}/admin/reader/messages/compose?to={{ item.actorHandle | urlencode }}&replyTo={{ item.uid | urlencode }}" class="ap-notification__reply-btn">
+          ↩ {{ __("activitypub.reader.actions.reply") }}
+        </a>
+      </div>
+    {% endif %}
+  </div>
+
+  {# Timestamp #}
+  {% if item.published %}
+    <time datetime="{{ item.published }}" class="ap-notification__time" x-data x-relative-time>
+      {{ item.published | date("PPp") }}
+    </time>
+  {% endif %}
+</div>

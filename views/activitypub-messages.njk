@@ -1,0 +1,78 @@
+{% extends "layouts/ap-reader.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+{% from "prose/macro.njk" import prose with context %}
+
+{% block readercontent %}
+  {# Toolbar — compose + mark read + clear all #}
+  {% set msgBase = mountPath + "/admin/reader/messages" %}
+  <div class="ap-notifications__toolbar">
+    <a href="{{ msgBase }}/compose" class="ap-notifications__btn ap-notifications__btn--primary">
+      {{ __("activitypub.messages.compose") }}
+    </a>
+    {% if unreadCount > 0 %}
+      <form method="post" action="{{ msgBase }}/mark-read">
+        <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+        <button type="submit" class="ap-notifications__btn">{{ __("activitypub.messages.markAllRead") }}</button>
+      </form>
+    {% endif %}
+    <form method="post" action="{{ msgBase }}/clear"
+          onsubmit="return confirm('{{ __("activitypub.messages.clearConfirm") }}')">
+      <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+      <button type="submit" class="ap-notifications__btn ap-notifications__btn--danger">{{ __("activitypub.messages.clearAll") }}</button>
+    </form>
+  </div>
+
+  <div class="ap-messages__layout">
+    {# Conversation partner sidebar #}
+    {% if partners.length > 0 %}
+      <aside class="ap-messages__sidebar">
+        <a href="{{ msgBase }}" class="ap-messages__partner{% if not activePartner %} ap-messages__partner--active{% endif %}">
+          {{ __("activitypub.messages.allConversations") }}
+        </a>
+        {% for p in partners %}
+          <a href="{{ msgBase }}?partner={{ p._id | urlencode }}"
+             class="ap-messages__partner{% if activePartner == p._id %} ap-messages__partner--active{% endif %}">
+            <span class="ap-messages__partner-avatar" data-avatar-fallback>
+              {% if p.actorPhoto %}
+                <img src="{{ p.actorPhoto }}" alt="{{ p.actorName }}" loading="lazy" crossorigin="anonymous">
+              {% endif %}
+              <span class="ap-messages__partner-initial" aria-hidden="true">{{ p.actorName[0] | upper if p.actorName else "?" }}</span>
+            </span>
+            <span class="ap-messages__partner-info">
+              <span class="ap-messages__partner-name">{{ p.actorName }}</span>
+              {% if p.actorHandle %}
+                <span class="ap-messages__partner-handle">{{ p.actorHandle }}</span>
+              {% endif %}
+            </span>
+            {% if p.unreadCount > 0 %}
+              <span class="ap-tab__count">{{ p.unreadCount }}</span>
+            {% endif %}
+          </a>
+        {% endfor %}
+      </aside>
+    {% endif %}
+
+    {# Messages list #}
+    <div class="ap-messages__content">
+      {% if items.length > 0 %}
+        <div class="ap-timeline">
+          {% for item in items %}
+            {% include "partials/ap-message-card.njk" %}
+          {% endfor %}
+        </div>
+
+        {# Pagination — preserve active partner #}
+        {% if before %}
+          <nav class="ap-pagination">
+            <a href="?{% if activePartner %}partner={{ activePartner | urlencode }}&{% endif %}before={{ before }}" class="ap-pagination__next">
+              {{ __("activitypub.reader.pagination.older") }}
+            </a>
+          </nav>
+        {% endif %}
+      {% else %}
+        {{ prose({ text: __("activitypub.messages.empty") }) }}
+      {% endif %}
+    </div>
+  </div>
+{% endblock %}

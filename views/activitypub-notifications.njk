@@ -23,6 +23,14 @@
       {{ __("activitypub.notifications.tabs.follows") }}
       {% if tabCounts.follow %}<span class="ap-tab__count">{{ tabCounts.follow }}</span>{% endif %}
     </a>
+    <a href="{{ notifBase }}?tab=dm" class="ap-tab{% if tab == 'dm' %} ap-tab--active{% endif %}">
+      {{ __("activitypub.notifications.tabs.dms") }}
+      {% if tabCounts.dm %}<span class="ap-tab__count">{{ tabCounts.dm }}</span>{% endif %}
+    </a>
+    <a href="{{ notifBase }}?tab=report" class="ap-tab{% if tab == 'report' %} ap-tab--active{% endif %}">
+      {{ __("activitypub.notifications.tabs.reports") }}
+      {% if tabCounts.report %}<span class="ap-tab__count">{{ tabCounts.report }}</span>{% endif %}
+    </a>
     <a href="{{ notifBase }}?tab=all" class="ap-tab{% if tab == 'all' %} ap-tab--active{% endif %}">
       {{ __("activitypub.notifications.tabs.all") }}
       {% if tabCounts.all %}<span class="ap-tab__count">{{ tabCounts.all }}</span>{% endif %}

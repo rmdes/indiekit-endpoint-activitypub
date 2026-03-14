@@ -15,7 +15,7 @@
     {% endif %}
     <span class="ap-notification__avatar ap-notification__avatar--default" aria-hidden="true">{{ item.actorName[0] | upper if item.actorName else "?" }}</span>
     <span class="ap-notification__type-badge">
-      {% if item.type == "like" %}❤{% elif item.type == "boost" %}🔁{% elif item.type == "follow" %}👤{% elif item.type == "reply" %}💬{% elif item.type == "mention" %}@{% endif %}
+      {% if item.type == "like" %}❤{% elif item.type == "boost" %}🔁{% elif item.type == "follow" %}👤{% elif item.type == "reply" %}💬{% elif item.type == "mention" %}@{% elif item.type == "dm" %}✉{% elif item.type == "report" %}⚑{% endif %}
     </span>
   </div>
 
@@ -36,6 +36,10 @@
         {{ __("activitypub.notifications.repliedTo") }}
       {% elif item.type == "mention" %}
         {{ __("activitypub.notifications.mentionedYou") }}
+      {% elif item.type == "dm" %}
+        {{ __("activitypub.messages.sentYouDM") }}
+      {% elif item.type == "report" %}
+        {{ __("activitypub.reports.sentReport") }}
       {% endif %}
     </span>
 
@@ -58,6 +62,12 @@
         </a>
         <a href="{{ mountPath }}/admin/reader/post?url={{ (item.url or item.uid) | urlencode }}" class="ap-notification__thread-btn" title="{{ __('activitypub.reader.post.title') }}">
           💬 {{ __("activitypub.notifications.viewThread") }}
+        </a>
+      </div>
+    {% elif item.type == "dm" %}
+      <div class="ap-notification__actions">
+        <a href="{{ mountPath }}/admin/reader/messages?partner={{ item.actorUrl | urlencode }}" class="ap-notification__thread-btn" title="{{ __('activitypub.messages.title') }}">
+          ✉ {{ __("activitypub.messages.viewMessage") }}
         </a>
       </div>
     {% endif %}

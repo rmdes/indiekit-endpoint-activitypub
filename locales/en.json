@@ -165,9 +165,32 @@
         "replies": "Replies",
         "likes": "Likes",
         "boosts": "Boosts",
-        "follows": "Follows"
+        "follows": "Follows",
+        "dms": "DMs",
+        "reports": "Reports"
       },
       "emptyTab": "No %s notifications yet."
+    },
+    "messages": {
+      "title": "Messages",
+      "empty": "No messages yet. Direct messages from other fediverse users will appear here.",
+      "allConversations": "All conversations",
+      "compose": "New message",
+      "send": "Send message",
+      "delete": "Delete",
+      "markAllRead": "Mark all read",
+      "clearAll": "Clear all",
+      "clearConfirm": "Delete all messages? This cannot be undone.",
+      "recipientLabel": "To",
+      "recipientPlaceholder": "@user@instance.social",
+      "placeholder": "Write your message...",
+      "sentTo": "To",
+      "replyingTo": "Replying to",
+      "sentYouDM": "sent you a direct message",
+      "viewMessage": "View message",
+      "errorEmpty": "Message content cannot be empty.",
+      "errorNoRecipient": "Please enter a recipient.",
+      "errorRecipientNotFound": "Could not find that user. Try a full @user@domain handle."
     },
     "reader": {
       "title": "Reader",
@@ -282,6 +305,20 @@
         "likes": "Likes",
         "boosts": "Boosts"
       }
+    },
+    "poll": {
+      "voters": "voters",
+      "votes": "votes",
+      "closed": "Poll closed",
+      "endsAt": "Ends"
+    },
+    "federation": {
+      "deleteSuccess": "Delete activity sent to followers",
+      "deleteButton": "Delete from fediverse"
+    },
+    "reports": {
+      "sentReport": "filed a report",
+      "title": "Reports"
     }
   }
 }
