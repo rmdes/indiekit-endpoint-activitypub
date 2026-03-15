@@ -1,14 +1,11 @@
-{% extends "document.njk" %}
+{% extends "layouts/ap-reader.njk" %}
 
-{% from "heading/macro.njk" import heading with context %}
 {% from "card/macro.njk" import card with context %}
 {% from "badge/macro.njk" import badge with context %}
 {% from "prose/macro.njk" import prose with context %}
 {% from "pagination/macro.njk" import pagination with context %}
 
-{% block content %}
-  <link rel="stylesheet" href="{{ mountPath }}/assets/reader.css">
-
+{% block readercontent %}
   <div x-data="federationMgmt()" data-mount-path="{{ mountPath }}" data-csrf-token="{{ csrfToken }}">
 
   {# --- Collection Health --- #}
