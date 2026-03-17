@@ -176,13 +176,24 @@ Express 5 removed the `"back"` magic keyword from `response.redirect()`. It's tr
 
 JSON-LD compaction collapses single-element arrays to plain objects. Mastodon's `update_account_fields` checks `attachment.is_a?(Array)` and silently skips if it's not an array. `sendFedifyResponse()` in `federation-bridge.js` forces `attachment` to always be an array.
 
-**Note:** The old `endpoints.type` bug ([fedify#576](https://github.com/fedify-dev/fedify/issues/576)) was fixed in Fedify 2.0 — that workaround has been removed.
+### 10. WORKAROUND: Endpoints `as:Endpoints` Type Stripping
 
-### 10. Profile Links — Express qs Body Parser Key Mismatch
+**File:** `lib/federation-bridge.js` (in `sendFedifyResponse()`)
+**Upstream issue:** [fedify#576](https://github.com/fedify-dev/fedify/issues/576) — FIXED in Fedify 2.1.0
+**Workaround:** `delete json.endpoints.type` strips the invalid `"type": "as:Endpoints"` from actor JSON.
+**Remove when:** Upgrading to Fedify ≥ 2.1.0.
+
+### 11. KNOWN ISSUE: PropertyValue Attachment Type Validation
+
+**Upstream issue:** [fedify#629](https://github.com/fedify-dev/fedify/issues/629) — OPEN
+**Problem:** `PropertyValue` (schema.org type) is not a valid AS2 Object/Link, so browser.pub rejects `/attachment`. Every Mastodon-compatible server emits this — cannot remove without breaking profile fields.
+**Workaround:** None applied (would break Mastodon compatibility). Documented as a known browser.pub strictness issue.
+
+### 12. Profile Links — Express qs Body Parser Key Mismatch
 
 `express.urlencoded({ extended: true })` uses `qs` which strips `[]` from array field names. HTML fields named `link_name[]` arrive as `request.body.link_name` (not `request.body["link_name[]"]`). The profile controller reads `link_name` and `link_value`, NOT `link_name[]`.
 
-### 11. Author Resolution Fallback Chain
+### 13. Author Resolution Fallback Chain
 
 `extractObjectData()` in `timeline-store.js` uses a multi-strategy fallback:
 1. `object.getAttributedTo()` — async, may fail with Authorized Fetch
@@ -192,7 +203,7 @@ JSON-LD compaction collapses single-element arrays to plain objects. Mastodon's 
 
 Without this chain, many timeline items show "Unknown" as the author.
 
-### 12. Username Extraction from Actor URLs
+### 14. Username Extraction from Actor URLs
 
 When extracting usernames from attribution IDs, handle multiple URL patterns:
 - `/@username` (Mastodon)
@@ -201,33 +212,33 @@ When extracting usernames from attribution IDs, handle multiple URL patterns:
 
 The regex was previously matching "users" instead of the actual username from `/users/NatalieDavis`.
 
-### 13. Empty Boost Filtering
+### 15. Empty Boost Filtering
 
 Lemmy/PieFed send Announce activities where the boosted object resolves to an activity ID instead of a Note/Article with actual content. Check `object.content || object.name` before storing to avoid empty cards in the timeline.
 
-### 14. Temporal.Instant for Fedify Dates
+### 16. Temporal.Instant for Fedify Dates
 
 Fedify uses `@js-temporal/polyfill` for dates. When setting `published` on Fedify objects, use `Temporal.Instant.from(isoString)`. When reading Fedify dates in inbox handlers, use `String(object.published)` to get ISO strings — NOT `new Date(object.published)` which causes `TypeError`.
 
-### 15. LogTape — Configure Once Only
+### 17. LogTape — Configure Once Only
 
 `@logtape/logtape`'s `configure()` can only be called once per process. The module-level `_logtapeConfigured` flag prevents duplicate configuration. If configure fails (e.g., another plugin already configured it), catch the error silently.
 
 When the debug dashboard is enabled (`debugDashboard: true`), LogTape configuration is **skipped entirely** because `@fedify/debugger` configures its own LogTape sink for the dashboard UI.
 
-### 16. .authorize() Intentionally NOT Chained on Actor Dispatcher
+### 18. .authorize() Intentionally NOT Chained on Actor Dispatcher
 
 Fedify's `.authorize()` triggers HTTP Signature verification on every GET to the actor endpoint. Servers requiring Authorized Fetch cause infinite loops: Fedify tries to fetch their key → they return 401 → Fedify retries → 500 errors. Re-enable when Fedify supports authenticated document loading for outgoing fetches.
 
-### 17. Delivery Queue Must Be Started
+### 19. Delivery Queue Must Be Started
 
 `federation.startQueue()` MUST be called after setup. Without it, `ctx.sendActivity()` enqueues tasks but the message queue never processes them — activities are never delivered.
 
-### 18. Shared Key Dispatcher for Shared Inbox
+### 20. Shared Key Dispatcher for Shared Inbox
 
 `inboxChain.setSharedKeyDispatcher()` tells Fedify to use our actor's key pair when verifying HTTP Signatures on the shared inbox. Without this, servers like hachyderm.io (which requires Authorized Fetch) have their signatures rejected.
 
-### 19. Fedify 2.0 Modular Imports
+### 21. Fedify 2.0 Modular Imports
 
 Fedify 2.0 uses modular entry points instead of a single barrel export. Imports must use the correct subpath:
 
@@ -245,19 +256,19 @@ import { Person, Note, Article, Create, Follow, ... } from "@fedify/fedify/vocab
 // import { Person, createFederation, exportJwk } from "@fedify/fedify";
 ```
 
-### 20. importSpki Removed in Fedify 2.0
+### 22. importSpki Removed in Fedify 2.0
 
 Fedify 1.x exported `importSpki()` for loading PEM public keys. This was removed in 2.0. The local `importSpkiPem()` function in `federation-setup.js` replaces it using the Web Crypto API directly (`crypto.subtle.importKey("spki", ...)`). Similarly, `importPkcs8Pem()` handles private keys in PKCS#8 format.
 
-### 21. KvStore Requires list() in Fedify 2.0
+### 23. KvStore Requires list() in Fedify 2.0
 
 Fedify 2.0 added a `list(prefix?)` method to the KvStore interface. It must return an `AsyncIterable<{ key: string[], value: unknown }>`. The `MongoKvStore` in `kv-store.js` implements this as an async generator that queries MongoDB with a regex prefix match on the `_id` field.
 
-### 22. Debug Dashboard Body Consumption
+### 24. Debug Dashboard Body Consumption
 
 The `@fedify/debugger` login form POSTs `application/x-www-form-urlencoded` data. Because Express's body parser runs before the Fedify bridge, the POST body stream is already consumed (`req.readable === false`). The bridge in `federation-bridge.js` detects this and reconstructs the body from `req.body`. Without this, the debugger's login handler receives an empty body and throws `"Response body object should not be disturbed or locked"`. See also Gotcha #1.
 
-### 23. Unified Item Processing Pipeline
+### 25. Unified Item Processing Pipeline
 
 All views that display timeline items — reader, explore, tag timeline, hashtag explore, and their AJAX API counterparts — **must** use the shared pipeline in `lib/item-processing.js`. Never duplicate moderation filtering, quote stripping, interaction map building, or card rendering in individual controllers.
 
@@ -288,7 +299,7 @@ const html = await renderItemCards(processed, request, { interactionMap, mountPa
 
 **If you add a new view that shows timeline items, use this pipeline.** Do not inline the logic.
 
-### 24. Unified Infinite Scroll Alpine Component
+### 26. Unified Infinite Scroll Alpine Component
 
 All views with infinite scroll use a single `apInfiniteScroll` Alpine.js component (in `assets/reader-infinite-scroll.js`), parameterized via data attributes on the container element:
 
@@ -307,7 +318,7 @@ All views with infinite scroll use a single `apInfiniteScroll` Alpine.js compone
 
 **Do not create separate scroll components for new views.** Configure the existing one with appropriate data attributes. The explore view uses `data-cursor-param="max_id"` and `data-cursor-field="maxId"` (Mastodon API conventions), while the reader uses `data-cursor-param="before"` and `data-cursor-field="before"`.
 
-### 25. Quote Embeds and Enrichment
+### 27. Quote Embeds and Enrichment
 
 Posts that quote another post (Mastodon quote feature via FEP-044f) are rendered with an embedded card showing the quoted post's author, content, and timestamp. The data flow:
 
@@ -316,11 +327,11 @@ Posts that quote another post (Mastodon quote feature via FEP-044f) are rendered
 3. **On-demand:** `post-detail.js` fetches quotes on demand for items that have `quoteUrl` but no stored `quote` data (pre-existing items)
 4. **Rendering:** `partials/ap-quote-embed.njk` renders the embedded card; `stripQuoteReferences()` removes the inline `RE: <link>` paragraph to avoid duplication
 
-### 26. Async Inbox Processing (v2.14.0+)
+### 28. Async Inbox Processing (v2.14.0+)
 
 Inbound activities follow a two-stage pattern: `inbox-listeners.js` receives activities from Fedify, persists them to `ap_inbox_queue`, then `inbox-handlers.js` processes them asynchronously. This ensures no data loss if the server crashes mid-processing. Reply forwarding (`ctx.forwardActivity()`) happens synchronously in `inbox-listeners.js` because `forwardActivity()` is only available on `InboxContext`, not the base `Context` used by the queue processor.
 
-### 27. Outbox Delivery Failure Handling (v2.15.0+)
+### 29. Outbox Delivery Failure Handling (v2.15.0+)
 
 `lib/outbox-failure.js` handles permanent delivery failures reported by Fedify's `setOutboxPermanentFailureHandler`:
 
@@ -328,12 +339,12 @@ Inbound activities follow a two-stage pattern: `inbox-listeners.js` receives act
 - **404 Not Found** → Strike system: increments `deliveryFailures` on the follower doc, sets `firstFailureAt` via `$setOnInsert`. After 3 strikes over 7+ days, triggers the same full cleanup as 410
 - **Strike reset** → `resetDeliveryStrikes()` is called in `inbox-listeners.js` after `touchKeyFreshness()` for every inbound activity type (except Block). If an actor is sending us activities, they're alive — `$unset` the strike fields
 
-### 28. Reply Chain Fetching and Reply Forwarding (v2.15.0+)
+### 30. Reply Chain Fetching and Reply Forwarding (v2.15.0+)
 
 - `fetchReplyChain()` in `inbox-handlers.js`: When a reply arrives, recursively fetches parent posts up to 5 levels deep using `object.getReplyTarget()`. Ancestors are stored with `isContext: true` flag. Uses `$setOnInsert` upsert so re-fetching ancestors is a no-op.
 - Reply forwarding in `inbox-listeners.js`: When a Create activity is a reply to one of our posts (checked via `inReplyTo.startsWith(publicationUrl)`) and is addressed to the public collection, calls `ctx.forwardActivity()` to re-deliver the reply to our followers' inboxes.
 
-### 29. Write-Time Visibility Classification (v2.15.0+)
+### 31. Write-Time Visibility Classification (v2.15.0+)
 
 `computeVisibility(object)` in `inbox-handlers.js` classifies posts at ingest time based on `to`/`cc` fields:
 - `to` includes `https://www.w3.org/ns/activitystreams#Public` → `"public"`
@@ -342,11 +353,11 @@ Inbound activities follow a two-stage pattern: `inbox-listeners.js` receives act
 
 The `visibility` field is stored on `ap_timeline` documents for future filtering.
 
-### 30. Server Blocking (v2.14.0+)
+### 32. Server Blocking (v2.14.0+)
 
 `lib/storage/server-blocks.js` manages domain-level blocks stored in `ap_blocked_servers`. When a server is blocked, all inbound activities from that domain are rejected in `inbox-listeners.js` before any processing occurs. The `federation-mgmt.js` controller provides the admin UI.
 
-### 31. Key Freshness Tracking (v2.14.0+)
+### 33. Key Freshness Tracking (v2.14.0+)
 
 `lib/key-refresh.js` tracks when remote actor keys were last verified in `ap_key_freshness`. `touchKeyFreshness()` is called for every inbound activity. This allows skipping redundant key re-fetches for actors we've recently verified, reducing network round-trips.
 

@@ -339,6 +339,23 @@ Mastodon's `update_account_fields` checks `attachment.is_a?(Array)` and silently
 
 **Revisit when:** Fedify adds an option to preserve arrays during JSON-LD serialization, or Mastodon fixes their array check.
 
+### Endpoints `as:Endpoints` Type Stripping
+
+**File:** `lib/federation-bridge.js` (in `sendFedifyResponse()`)
+**Upstream issue:** [fedify#576](https://github.com/fedify-dev/fedify/issues/576) — FIXED in Fedify 2.1.0
+
+Fedify serializes the `endpoints` object with `"type": "as:Endpoints"`, which is not a valid ActivityStreams type. browser.pub rejects this. The bridge strips the `type` field from the `endpoints` object before sending.
+
+**Remove when:** Upgrading to Fedify ≥ 2.1.0.
+
+### PropertyValue Attachment Type (Known Issue)
+
+**Upstream issue:** [fedify#629](https://github.com/fedify-dev/fedify/issues/629) — OPEN
+
+Fedify serializes `PropertyValue` attachments (used by Mastodon for profile metadata fields) with `"type": "PropertyValue"`, a schema.org type that is not a valid AS2 Object or Link. browser.pub rejects `/attachment` as invalid. However, every Mastodon-compatible server emits `PropertyValue` — removing it would break profile field display across the fediverse.
+
+**No workaround applied.** This is a de facto fediverse standard despite not being in the AS2 vocabulary.
+
 ### `.authorize()` Not Chained on Actor Dispatcher
 
 **File:** `lib/federation-setup.js` (line ~254)
