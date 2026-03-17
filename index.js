@@ -434,7 +434,7 @@ export default class ActivityPubEndpoint {
           "properties.url": requestUrl,
         });
 
-        if (!post) {
+        if (!post || post.properties?.deleted) {
           return next();
         }
 
