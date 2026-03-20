@@ -2,6 +2,7 @@ import express from "express";
 
 import { setupFederation, buildPersonActor } from "./lib/federation-setup.js";
 import { createMastodonRouter } from "./lib/mastodon/router.js";
+import { setLocalIdentity } from "./lib/mastodon/entities/status.js";
 import { initRedisCache } from "./lib/redis-cache.js";
 import { lookupWithSecurity } from "./lib/lookup-helpers.js";
 import {
@@ -1491,6 +1492,9 @@ export default class ActivityPubEndpoint {
       mountPath: "/",
       routesPublic: this.contentNegotiationRoutes,
     });
+
+    // Set local identity for own-post detection in status serialization
+    setLocalIdentity(this._publicationUrl, this.options.actor?.handle || "user");
 
     // Mastodon Client API — virtual endpoint at root
     // Mastodon-compatible clients (Phanpy, Elk, etc.) expect /api/v1/*,
