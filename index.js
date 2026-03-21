@@ -79,7 +79,12 @@ import {
   instanceCheckApiController,
   popularAccountsApiController,
 } from "./lib/controllers/explore.js";
-import { followTagController, unfollowTagController } from "./lib/controllers/follow-tag.js";
+import {
+  followTagController,
+  unfollowTagController,
+  followTagGloballyController,
+  unfollowTagGloballyController,
+} from "./lib/controllers/follow-tag.js";
 import {
   listTabsController,
   addTabController,
@@ -296,6 +301,8 @@ export default class ActivityPubEndpoint {
     router.patch("/admin/reader/api/tabs/reorder", reorderTabsController(mp));
     router.post("/admin/reader/follow-tag", followTagController(mp));
     router.post("/admin/reader/unfollow-tag", unfollowTagController(mp));
+    router.post("/admin/reader/follow-tag-global", followTagGloballyController(mp, this));
+    router.post("/admin/reader/unfollow-tag-global", unfollowTagGloballyController(mp, this));
     router.get("/admin/reader/notifications", notificationsController(mp));
     router.post("/admin/reader/notifications/mark-read", markAllNotificationsReadController(mp));
     router.post("/admin/reader/notifications/clear", clearAllNotificationsController(mp));

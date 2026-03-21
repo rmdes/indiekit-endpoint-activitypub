@@ -297,7 +297,11 @@
         "noPosts": "No posts found with #%s in your timeline.",
         "followTag": "Follow hashtag",
         "unfollowTag": "Unfollow hashtag",
-        "following": "Following"
+        "following": "Following",
+        "followGlobally": "Follow globally via tags.pub",
+        "unfollowGlobally": "Unfollow global",
+        "globallyFollowing": "Following globally",
+        "globalFollowError": "Failed to follow globally: %s"
       },
       "pagination": {
         "newer": "← Newer",

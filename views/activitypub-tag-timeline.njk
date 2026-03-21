@@ -4,12 +4,15 @@
   {# Tag header #}
   <header class="ap-tag-header">
     <div class="ap-tag-header__info">
-      <h2 class="ap-tag-header__title">#{{ hashtag }}</h2>
+      <h2 class="ap-tag-header__title">#{{ hashtag }}{% if isGloballyFollowed %} <span class="ap-tag-header__global-badge" title="{{ __('activitypub.reader.tagTimeline.globallyFollowing') }}">🌐</span>{% endif %}</h2>
       <p class="ap-tag-header__count">
         {{ __("activitypub.reader.tagTimeline.postsTagged", items.length) }}
       </p>
     </div>
     <div class="ap-tag-header__actions">
+      {% if error %}
+        <p class="ap-tag-header__error">{{ __("activitypub.reader.tagTimeline.globalFollowError", error) }}</p>
+      {% endif %}
       {% if isFollowed %}
         <form action="{{ mountPath }}/admin/reader/unfollow-tag" method="post" class="ap-tag-header__follow-form">
           <input type="hidden" name="_csrf" value="{{ csrfToken }}">
@@ -24,6 +27,23 @@
           <input type="hidden" name="tag" value="{{ hashtag }}">
           <button type="submit" class="ap-tag-header__follow-btn">
             {{ __("activitypub.reader.tagTimeline.followTag") }}
+          </button>
+        </form>
+      {% endif %}
+      {% if isGloballyFollowed %}
+        <form action="{{ mountPath }}/admin/reader/unfollow-tag-global" method="post" class="ap-tag-header__follow-form">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          <input type="hidden" name="tag" value="{{ hashtag }}">
+          <button type="submit" class="ap-tag-header__unfollow-btn ap-tag-header__unfollow-btn--global">
+            🌐 {{ __("activitypub.reader.tagTimeline.unfollowGlobally") }}
+          </button>
+        </form>
+      {% else %}
+        <form action="{{ mountPath }}/admin/reader/follow-tag-global" method="post" class="ap-tag-header__follow-form">
+          <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+          <input type="hidden" name="tag" value="{{ hashtag }}">
+          <button type="submit" class="ap-tag-header__follow-btn ap-tag-header__follow-btn--global">
+            🌐 {{ __("activitypub.reader.tagTimeline.followGlobally") }}
           </button>
         </form>
       {% endif %}
