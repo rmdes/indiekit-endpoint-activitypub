@@ -116,6 +116,53 @@
     {% endif %}
   </section>
 
+  {# --- Moderation Overview --- #}
+  <section class="ap-federation__section">
+    <h2>Moderation</h2>
+    {% if blockedServers.length > 0 %}
+      <h3>Blocked servers ({{ blockedServers.length }})</h3>
+      <div class="ap-federation__stats-grid">
+        {% for server in blockedServers %}
+          <div class="ap-federation__stat-card">
+            <span class="ap-federation__stat-label">🚫 {{ server.hostname }}</span>
+            {% if server.blockedAt %}
+              <span class="ap-federation__stat-count" style="font-size: 0.75rem; opacity: 0.7">{{ server.blockedAt | date("PPp") }}</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      {{ prose({ text: "No servers blocked." }) }}
+    {% endif %}
+
+    {% if blockedAccounts.length > 0 %}
+      <h3>Blocked accounts ({{ blockedAccounts.length }})</h3>
+      <div class="ap-federation__stats-grid">
+        {% for account in blockedAccounts %}
+          <div class="ap-federation__stat-card">
+            <span class="ap-federation__stat-label">🚫 {{ account.url or account.handle or "Unknown" }}</span>
+            {% if account.blockedAt %}
+              <span class="ap-federation__stat-count" style="font-size: 0.75rem; opacity: 0.7">{{ account.blockedAt | date("PPp") }}</span>
+            {% endif %}
+          </div>
+        {% endfor %}
+      </div>
+    {% else %}
+      {{ prose({ text: "No accounts blocked." }) }}
+    {% endif %}
+
+    {% if mutedAccounts.length > 0 %}
+      <h3>Muted ({{ mutedAccounts.length }})</h3>
+      <div class="ap-federation__stats-grid">
+        {% for muted in mutedAccounts %}
+          <div class="ap-federation__stat-card">
+            <span class="ap-federation__stat-label">🔇 {{ muted.url or muted.keyword or "Unknown" }}</span>
+          </div>
+        {% endfor %}
+      </div>
+    {% endif %}
+  </section>
+
   {# --- JSON Modal --- #}
   <div class="ap-federation__modal-overlay" x-show="jsonModalOpen" x-cloak
     @click.self="jsonModalOpen = false" @keydown.escape.window="jsonModalOpen = false">
