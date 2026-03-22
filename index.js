@@ -238,6 +238,21 @@ export default class ActivityPubEndpoint {
         console.info(`[federation-diag] POST ${req.path} from=${ua.slice(0, 60)} bodyParsed=${bodyParsed} readable=${req.readable}`);
       }
 
+      // Fedify's acceptsJsonLd() treats Accept: */* as NOT accepting JSON-LD
+      // (it only returns true for explicit application/activity+json etc.).
+      // Remote servers fetching actor URLs for HTTP Signature verification
+      // (e.g. tags.pub) often omit Accept or use */* — they get HTML back
+      // instead of the actor JSON, causing "public key not found" errors.
+      // Fix: for GET requests to actor paths, upgrade ambiguous Accept headers
+      // to application/activity+json so Fedify serves JSON-LD. Explicit
+      // text/html requests (browsers) are unaffected.
+      if (req.method === "GET" && /^\/users\/[^/]+\/?$/.test(req.path)) {
+        const accept = req.get("accept") || "";
+        if (!accept.includes("text/html") && !accept.includes("application/xhtml+xml")) {
+          req.headers["accept"] = "application/activity+json";
+        }
+      }
+
       return self._fedifyMiddleware(req, res, next);
     });
 
@@ -764,7 +779,7 @@ export default class ActivityPubEndpoint {
         (remoteActor.icon
           ? (await remoteActor.icon)?.url?.href || ""
           : "");
-      const inbox = remoteActor.inbox?.id?.href || "";
+      const inbox = remoteActor.inboxId?.href || "";
       const sharedInbox = remoteActor.endpoints?.sharedInbox?.href || "";
 
       await this._collections.ap_following.updateOne(
