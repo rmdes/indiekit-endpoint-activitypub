@@ -6,6 +6,11 @@ import { setLocalIdentity } from "./lib/mastodon/entities/status.js";
 import { initRedisCache } from "./lib/redis-cache.js";
 import { lookupWithSecurity } from "./lib/lookup-helpers.js";
 import {
+  needsDirectFollow,
+  sendDirectFollow,
+  sendDirectUnfollow,
+} from "./lib/direct-follow.js";
+import {
   createFedifyMiddleware,
 } from "./lib/federation-bridge.js";
 import {
@@ -230,13 +235,6 @@ export default class ActivityPubEndpoint {
       // Skip Fedify for admin UI routes — they're handled by the
       // authenticated `routes` getter, not the federation layer.
       if (req.path.startsWith("/admin")) return next();
-
-      // Diagnostic: log inbox POSTs to detect federation stalls
-      if (req.method === "POST" && req.path.includes("inbox")) {
-        const ua = req.get("user-agent") || "unknown";
-        const bodyParsed = req.body !== undefined && Object.keys(req.body || {}).length > 0;
-        console.info(`[federation-diag] POST ${req.path} from=${ua.slice(0, 60)} bodyParsed=${bodyParsed} readable=${req.readable}`);
-      }
 
       // Fedify's acceptsJsonLd() treats Accept: */* as NOT accepting JSON-LD
       // (it only returns true for explicit application/activity+json etc.).
@@ -729,6 +727,32 @@ export default class ActivityPubEndpoint {
    * @param {string} [actorInfo.photo] - Actor avatar URL
    * @returns {Promise<{ok: boolean, error?: string}>}
    */
+  /**
+   * Load the RSA private key from ap_keys for direct HTTP Signature signing.
+   * @returns {Promise<CryptoKey|null>}
+   */
+  async _loadRsaPrivateKey() {
+    try {
+      const keyDoc = await this._collections.ap_keys.findOne({
+        privateKeyPem: { $exists: true },
+      });
+      if (!keyDoc?.privateKeyPem) return null;
+      const pemBody = keyDoc.privateKeyPem
+        .replace(/-----[^-]+-----/g, "")
+        .replace(/\s/g, "");
+      return await crypto.subtle.importKey(
+        "pkcs8",
+        Buffer.from(pemBody, "base64"),
+        { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
+        false,
+        ["sign"],
+      );
+    } catch (error) {
+      console.error("[ActivityPub] Failed to load RSA key:", error.message);
+      return null;
+    }
+  }
+
   async followActor(actorUrl, actorInfo = {}) {
     if (!this._federation) {
       return { ok: false, error: "Federation not initialized" };
@@ -755,14 +779,33 @@ export default class ActivityPubEndpoint {
       }
 
       // Send Follow activity
-      const follow = new Follow({
-        actor: ctx.getActorUri(handle),
-        object: new URL(actorUrl),
-      });
-
-      await ctx.sendActivity({ identifier: handle }, remoteActor, follow, {
-        orderingKey: actorUrl,
-      });
+      if (needsDirectFollow(actorUrl)) {
+        // tags.pub rejects Fedify's LD Signature context (identity/v1).
+        // Send a minimal signed Follow directly, bypassing the outbox pipeline.
+        // See: https://github.com/social-web-foundation/tags.pub/issues/10
+        const rsaKey = await this._loadRsaPrivateKey();
+        if (!rsaKey) {
+          return { ok: false, error: "No RSA key available for direct follow" };
+        }
+        const result = await sendDirectFollow({
+          actorUri: ctx.getActorUri(handle).href,
+          targetActorUrl: actorUrl,
+          inboxUrl: remoteActor.inboxId?.href,
+          keyId: `${ctx.getActorUri(handle).href}#main-key`,
+          privateKey: rsaKey,
+        });
+        if (!result.ok) {
+          return { ok: false, error: result.error };
+        }
+      } else {
+        const follow = new Follow({
+          actor: ctx.getActorUri(handle),
+          object: new URL(actorUrl),
+        });
+        await ctx.sendActivity({ identifier: handle }, remoteActor, follow, {
+          orderingKey: actorUrl,
+        });
+      }
 
       // Store in ap_following
       const name =
@@ -866,19 +909,35 @@ export default class ActivityPubEndpoint {
         return { ok: true };
       }
 
-      const follow = new Follow({
-        actor: ctx.getActorUri(handle),
-        object: new URL(actorUrl),
-      });
-
-      const undo = new Undo({
-        actor: ctx.getActorUri(handle),
-        object: follow,
-      });
-
-      await ctx.sendActivity({ identifier: handle }, remoteActor, undo, {
-        orderingKey: actorUrl,
-      });
+      if (needsDirectFollow(actorUrl)) {
+        // tags.pub rejects Fedify's LD Signature context (identity/v1).
+        // See: https://github.com/social-web-foundation/tags.pub/issues/10
+        const rsaKey = await this._loadRsaPrivateKey();
+        if (rsaKey) {
+          const result = await sendDirectUnfollow({
+            actorUri: ctx.getActorUri(handle).href,
+            targetActorUrl: actorUrl,
+            inboxUrl: remoteActor.inboxId?.href,
+            keyId: `${ctx.getActorUri(handle).href}#main-key`,
+            privateKey: rsaKey,
+          });
+          if (!result.ok) {
+            console.warn(`[ActivityPub] Direct unfollow failed for ${actorUrl}: ${result.error}`);
+          }
+        }
+      } else {
+        const follow = new Follow({
+          actor: ctx.getActorUri(handle),
+          object: new URL(actorUrl),
+        });
+        const undo = new Undo({
+          actor: ctx.getActorUri(handle),
+          object: follow,
+        });
+        await ctx.sendActivity({ identifier: handle }, remoteActor, undo, {
+          orderingKey: actorUrl,
+        });
+      }
       await this._collections.ap_following.deleteOne({ actorUrl });
 
       console.info(`[ActivityPub] Sent Undo(Follow) to ${actorUrl}`);

@@ -593,6 +593,31 @@ curl -s "https://rmendes.net/nodeinfo/2.1" | jq .
 # Search from Mastodon for @rick@rmendes.net
 ```
 
+### 36. WORKAROUND: Direct Follow for tags.pub (v3.8.4+)
+
+**File:** `lib/direct-follow.js`
+**Upstream issue:** [tags.pub#10](https://github.com/social-web-foundation/tags.pub/issues/10) — OPEN
+**Remove when:** tags.pub registers `https://w3id.org/identity/v1` as a known context in `activitypub-bot`'s `lib/activitystreams.js`, OR switches to a JSON-LD parser that handles unknown contexts gracefully.
+
+**Problem:** Fedify 2.0 adds Linked Data Signatures (`RsaSignature2017`) to all outbound activities. The signature object embeds `"@context": "https://w3id.org/identity/v1"`, which gets hoisted into the top-level `@context` array. tags.pub's `activitypub-bot` uses the `activitystrea.ms` AS2 parser, which rejects any activity containing this context with `400 Invalid request body`. This affects ALL Fedify 2.0 servers, not just us.
+
+**Workaround:** `lib/direct-follow.js` sends Follow/Undo(Follow) activities with a minimal JSON body (standard AS2 context only, no LD Signature, no Data Integrity Proof) signed with draft-cavage HTTP Signatures. The `DIRECT_FOLLOW_HOSTS` set controls which hostnames use this path (currently only `tags.pub`).
+
+**Integration:** `followActor()` and `unfollowActor()` in `index.js` check `needsDirectFollow(actorUrl)` before sending. For matching hosts, they load the RSA private key from `ap_keys` via `_loadRsaPrivateKey()` and use `sendDirectFollow()`/`sendDirectUnfollow()` instead of Fedify's `ctx.sendActivity()`. All other servers use the normal Fedify pipeline unchanged.
+
+**How to revert:** When the upstream fix lands:
+1. Remove the `needsDirectFollow()` checks from `followActor()` and `unfollowActor()` in `index.js`
+2. Remove the `_loadRsaPrivateKey()` method from the plugin class
+3. Remove the `import` of `direct-follow.js` from `index.js`
+4. Delete `lib/direct-follow.js`
+5. Remove `tags.pub` from any test/documentation references to the workaround
+6. Verify by following a tags.pub hashtag actor and confirming the normal Fedify path succeeds
+
+**Additional tags.pub issues (not fixable on our side):**
+- tags.pub does not send `Accept(Follow)` activities back to our inbox
+- `@_followback@tags.pub` does not send Follow activities back despite accepting ours
+- Both suggest tags.pub's outbound delivery is broken — zero inbound requests from `activitypub-bot` user-agent have been observed
+
 ## CSS Conventions
 
 The reader CSS (`assets/reader.css`) uses Indiekit's theme custom properties for automatic dark mode support:
