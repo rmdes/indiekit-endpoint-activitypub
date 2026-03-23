@@ -744,7 +744,7 @@ export default class ActivityPubEndpoint {
         "pkcs8",
         Buffer.from(pemBody, "base64"),
         { name: "RSASSA-PKCS1-v1_5", hash: "SHA-256" },
-        false,
+        true,
         ["sign"],
       );
     } catch (error) {
@@ -1589,6 +1589,7 @@ export default class ActivityPubEndpoint {
         federation: this._federation,
         followActor: (url, info) => pluginRef.followActor(url, info),
         unfollowActor: (url) => pluginRef.unfollowActor(url),
+        loadRsaKey: () => pluginRef._loadRsaPrivateKey(),
       },
     });
     Indiekit.addEndpoint({
