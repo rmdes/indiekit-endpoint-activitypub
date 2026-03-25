@@ -23,19 +23,30 @@ document.addEventListener("alpine:init", () => {
     likeCount: null,
     boostCount: null,
 
+    // Stored from data attributes in init() — must use $root to guarantee
+    // we read from the x-data element, not a child element in event context.
+    _mountPath: "",
+    _csrfToken: "",
+    _itemUid: "",
+    _itemUrl: "",
+
     init() {
-      this.liked = this.$el.dataset.liked === "true";
-      this.boosted = this.$el.dataset.boosted === "true";
-      const lc = this.$el.dataset.likeCount;
-      const bc = this.$el.dataset.boostCount;
+      const root = this.$root;
+      this.liked = root.dataset.liked === "true";
+      this.boosted = root.dataset.boosted === "true";
+      this._mountPath = root.dataset.mountPath || "";
+      this._csrfToken = root.dataset.csrfToken || "";
+      this._itemUid = root.dataset.itemUid || "";
+      this._itemUrl = root.dataset.itemUrl || "";
+      const lc = root.dataset.likeCount;
+      const bc = root.dataset.boostCount;
       this.likeCount = lc != null && lc !== "" ? Number(lc) : null;
       this.boostCount = bc != null && bc !== "" ? Number(bc) : null;
     },
 
     async saveLater() {
       if (this.saved) return;
-      const el = this.$el;
-      const itemUrl = el.dataset.itemUrl;
+      const itemUrl = this._itemUrl;
       try {
         const res = await fetch("/readlater/save", {
           method: "POST",
@@ -43,7 +54,7 @@ document.addEventListener("alpine:init", () => {
           body: JSON.stringify({
             url: itemUrl,
             title:
-              el.closest("article")?.querySelector("p")?.textContent?.substring(0, 80) ||
+              this.$root.closest("article")?.querySelector("p")?.textContent?.substring(0, 80) ||
               itemUrl,
             source: "activitypub",
           }),
@@ -61,10 +72,9 @@ document.addEventListener("alpine:init", () => {
       if (this.loading) return;
       this.loading = true;
       this.error = "";
-      const el = this.$el;
-      const itemUid = el.dataset.itemUid;
-      const csrfToken = el.dataset.csrfToken;
-      const basePath = el.dataset.mountPath;
+      const itemUid = this._itemUid;
+      const csrfToken = this._csrfToken;
+      const basePath = this._mountPath;
       const prev = {
         liked: this.liked,
         boosted: this.boosted,
