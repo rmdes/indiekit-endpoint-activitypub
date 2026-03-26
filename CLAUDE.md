@@ -161,6 +161,7 @@ processing pipeline via item-processing.js:
 | `ap_blocked_servers` | Blocked server domains | `hostname` (unique) |
 | `ap_key_freshness` | Remote actor key verification timestamps | `actorUrl` (unique), `lastVerifiedAt` |
 | `ap_inbox_queue` | Persistent async inbox queue | `activityId`, `status`, `enqueuedAt` |
+| `ap_tombstones` | Tombstone records for soft-deleted posts (FEP-4f05) | `url` (unique) |
 | `ap_oauth_apps` | Mastodon API client registrations | `clientId` (unique), `clientSecret`, `redirectUris` |
 | `ap_oauth_tokens` | OAuth2 authorization codes + access tokens | `code` (unique sparse), `accessToken` (unique sparse) |
 | `ap_markers` | Read position markers (Mastodon API) | `userId`, `timeline` |
@@ -219,12 +220,11 @@ Express 5 removed the `"back"` magic keyword from `response.redirect()`. It's tr
 
 JSON-LD compaction collapses single-element arrays to plain objects. Mastodon's `update_account_fields` checks `attachment.is_a?(Array)` and silently skips if it's not an array. `sendFedifyResponse()` in `federation-bridge.js` forces `attachment` to always be an array.
 
-### 10. WORKAROUND: Endpoints `as:Endpoints` Type Stripping
+### 10. REMOVED: Endpoints `as:Endpoints` Type Stripping (Fixed in Fedify 2.1.0)
 
-**File:** `lib/federation-bridge.js` (in `sendFedifyResponse()`)
 **Upstream issue:** [fedify#576](https://github.com/fedify-dev/fedify/issues/576) — FIXED in Fedify 2.1.0
-**Workaround:** `delete json.endpoints.type` strips the invalid `"type": "as:Endpoints"` from actor JSON.
-**Remove when:** Upgrading to Fedify ≥ 2.1.0.
+**Previous workaround** in `federation-bridge.js` — **REMOVED**.
+Fedify 2.1.0 now omits the invalid `"type": "as:Endpoints"` from serialized actor JSON. No workaround needed.
 
 ### 11. KNOWN ISSUE: PropertyValue Attachment Type Validation
 
@@ -623,6 +623,14 @@ curl -s "https://rmendes.net/nodeinfo/2.1" | jq .
 - tags.pub does not send `Accept(Follow)` activities back to our inbox
 - `@_followback@tags.pub` does not send Follow activities back despite accepting ours
 - Both suggest tags.pub's outbound delivery is broken — zero inbound requests from `activitypub-bot` user-agent have been observed
+
+### 37. Unverified Delete Activities (Fedify 2.1.0+)
+
+`onUnverifiedActivity()` in `federation-setup.js` handles Delete activities from actors whose signing keys return 404/410. When an account is permanently deleted, the remote server sends a Delete activity but the actor's key endpoint is gone, so HTTP Signature verification fails. The handler checks `reason.type === "keyFetchError"` with status 404/410, cleans up the actor's data (followers, timeline items, notifications), and returns 202 Accepted.
+
+### 38. FEP-8fcf Collection Synchronization — Outbound Only
+
+We pass `syncCollection: true` to Fedify's `sendActivity()` for outbound activities, which attaches `Collection-Synchronization` headers with partial follower digests (XOR'd SHA-256 hashes). However, the **receiving side** (parsing inbound headers, digest comparison, reconciliation) is NOT implemented by Fedify or by us. Remote servers that send Collection-Synchronization headers to us will have them ignored. Full FEP-8fcf compliance would require a `/followers-sync` endpoint and a reconciliation scheduler.
 
 ## Form Handling Convention
 

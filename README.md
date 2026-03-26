@@ -1,6 +1,6 @@
 # @rmdes/indiekit-endpoint-activitypub
 
-ActivityPub federation endpoint for [Indiekit](https://getindiekit.com), built on [Fedify](https://fedify.dev) 2.0. Makes your IndieWeb site a full fediverse actor — discoverable, followable, and interactive from Mastodon, Misskey, Pixelfed, and any ActivityPub-compatible platform. Includes a Mastodon-compatible Client API so you can use Phanpy, Elk, Moshidon, Fedilab, and other Mastodon clients with your own AP instance.
+ActivityPub federation endpoint for [Indiekit](https://getindiekit.com), built on [Fedify](https://fedify.dev) 2.1. Makes your IndieWeb site a full fediverse actor — discoverable, followable, and interactive from Mastodon, Misskey, Pixelfed, and any ActivityPub-compatible platform. Includes a Mastodon-compatible Client API so you can use Phanpy, Elk, Moshidon, Fedilab, and other Mastodon clients with your own AP instance.
 
 ## Features
 
@@ -109,10 +109,18 @@ ActivityPub federation endpoint for [Indiekit](https://getindiekit.com), built o
 - Follower and following lists with source tracking
 - Federation management page with moderation overview (blocked servers, blocked accounts, muted)
 
+**Standards Compliance**
+- FEP-5feb: Search Indexing Consent — actor advertises `indexable` and `discoverable` properties
+- FEP-f1d5/0151: Enhanced NodeInfo 2.1 — rich metadata including software repository, node name, staff accounts
+- FEP-4f05: Soft Delete with Tombstone — deleted posts return 410 with Tombstone JSON-LD including `formerType` and timestamps
+- FEP-3b86: Activity Intents — WebFinger links for Follow, Create, Like, Announce intents with authorize_interaction routing
+- FEP-8fcf: Collection Synchronization — outbound follower digest headers via Fedify `syncCollection`
+- FEP-044f: Quote Posts — rendered as embedded cards (via Fedify's `quoteUrl` support)
+
 ## Requirements
 
 - [Indiekit](https://getindiekit.com) v1.0.0-beta.25+
-- [Fedify](https://fedify.dev) 2.0+ (bundled as dependency)
+- [Fedify](https://fedify.dev) 2.1+ (bundled as dependency)
 - Node.js >= 22
 - MongoDB (used by Indiekit)
 - Redis (recommended for production delivery queue; in-process queue available for development)
@@ -322,6 +330,7 @@ The plugin creates these collections automatically:
 | `ap_blocked_servers` | Blocked server domains (instance-level blocks) |
 | `ap_key_freshness` | Tracks when remote actor keys were last verified |
 | `ap_inbox_queue` | Persistent async inbox processing queue |
+| `ap_tombstones` | Tombstone records for soft-deleted posts (FEP-4f05) |
 | `ap_oauth_apps` | Mastodon API client app registrations |
 | `ap_oauth_tokens` | OAuth2 authorization codes and access tokens |
 | `ap_markers` | Read position markers for Mastodon API clients |
@@ -342,7 +351,7 @@ Categories are converted to `Hashtag` tags. Bookmarks include a bookmark emoji a
 
 ## Fedify Workarounds and Implementation Notes
 
-This plugin uses [Fedify](https://fedify.dev) 2.0 but carries several workarounds for issues in Fedify or its Express integration. These are documented here so they can be revisited when Fedify upgrades.
+This plugin uses [Fedify](https://fedify.dev) 2.1 but carries several workarounds for issues in Fedify or its Express integration. These are documented here so they can be revisited when Fedify upgrades.
 
 ### Custom Express Bridge (instead of `@fedify/express`)
 
@@ -364,14 +373,11 @@ Mastodon's `update_account_fields` checks `attachment.is_a?(Array)` and silently
 
 **Revisit when:** Fedify adds an option to preserve arrays during JSON-LD serialization, or Mastodon fixes their array check.
 
-### Endpoints `as:Endpoints` Type Stripping
+### Endpoints `as:Endpoints` Type Stripping — REMOVED
 
-**File:** `lib/federation-bridge.js` (in `sendFedifyResponse()`)
 **Upstream issue:** [fedify#576](https://github.com/fedify-dev/fedify/issues/576) — FIXED in Fedify 2.1.0
 
-Fedify serializes the `endpoints` object with `"type": "as:Endpoints"`, which is not a valid ActivityStreams type. browser.pub rejects this. The bridge strips the `type` field from the `endpoints` object before sending.
-
-**Remove when:** Upgrading to Fedify ≥ 2.1.0.
+This workaround has been removed. Fedify 2.1.0 now omits the invalid `"type": "as:Endpoints"` from serialized actor JSON.
 
 ### PropertyValue Attachment Type (Known Issue)
 

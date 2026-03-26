@@ -435,6 +435,20 @@ export default class ActivityPubEndpoint {
         });
 
         if (!post || post.properties?.deleted) {
+          // FEP-4f05: Serve Tombstone for deleted posts
+          const { getTombstone } = await import("./lib/storage/tombstones.js");
+          const tombstone = await getTombstone(self._collections, requestUrl);
+          if (tombstone) {
+            res.status(410).set("Content-Type", "application/activity+json").json({
+              "@context": "https://www.w3.org/ns/activitystreams",
+              type: "Tombstone",
+              id: requestUrl,
+              formerType: tombstone.formerType,
+              published: tombstone.published || undefined,
+              deleted: tombstone.deleted,
+            });
+            return;
+          }
           return next();
         }
 
@@ -811,6 +825,21 @@ export default class ActivityPubEndpoint {
    * @param {string} url - Full URL of the deleted post
    */
   async delete(url) {
+    // Record tombstone for FEP-4f05
+    try {
+      const { addTombstone } = await import("./lib/storage/tombstones.js");
+      const postsCol = this._collections.posts;
+      const post = postsCol ? await postsCol.findOne({ "properties.url": url }) : null;
+      await addTombstone(this._collections, {
+        url,
+        formerType: post?.properties?.["post-type"] === "article" ? "Article" : "Note",
+        published: post?.properties?.published || null,
+        deleted: new Date().toISOString(),
+      });
+    } catch (error) {
+      console.warn(`[ActivityPub] Tombstone creation failed for ${url}: ${error.message}`);
+    }
+
     await this.broadcastDelete(url).catch((err) =>
       console.warn(`[ActivityPub] broadcastDelete failed for ${url}: ${err.message}`)
     );
@@ -927,6 +956,8 @@ export default class ActivityPubEndpoint {
     Indiekit.addCollection("ap_oauth_apps");
     Indiekit.addCollection("ap_oauth_tokens");
     Indiekit.addCollection("ap_markers");
+    // Tombstones for soft-deleted posts (FEP-4f05)
+    Indiekit.addCollection("ap_tombstones");
 
     // Store collection references (posts resolved lazily)
     const indiekitCollections = Indiekit.collections;
@@ -964,6 +995,7 @@ export default class ActivityPubEndpoint {
       ap_oauth_apps: indiekitCollections.get("ap_oauth_apps"),
       ap_oauth_tokens: indiekitCollections.get("ap_oauth_tokens"),
       ap_markers: indiekitCollections.get("ap_markers"),
+      ap_tombstones: indiekitCollections.get("ap_tombstones"),
       get posts() {
         return indiekitCollections.get("posts");
       },
