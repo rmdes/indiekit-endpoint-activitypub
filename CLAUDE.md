@@ -589,6 +589,15 @@ On restart, `refollow:pending` entries are reset to `import` to prevent stale cl
 }
 ```
 
+## Startup Gate
+
+This plugin uses `@rmdes/indiekit-startup-gate` to defer background tasks until the host signals readiness (after Eleventy build completes). This prevents resource contention during the build.
+
+**Deferred:** `startBatchRefollow()`, `scheduleCleanup()`, `loadBlockedServersToRedis()`, `scheduleKeyRefresh()`, timeline backfill, `startInboxProcessor()`
+**Immediate:** Routes, federation context, inbox HTTP handlers, `runSeparateMentionsMigration()`
+
+See workspace CLAUDE.md for the full startup-gate pattern. Any new background tasks added to this plugin MUST be wrapped in `waitForReady()`. Inbox routes MUST remain immediate — they receive inbound federation traffic regardless of build state.
+
 ## Publishing Workflow
 
 1. Edit code in this repo
