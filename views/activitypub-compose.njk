@@ -45,33 +45,45 @@
     {# Rich content editor (EasyMDE with media browser) #}
     <div class="ap-compose__editor">
       {{ textarea({
-        id: "content",
         name: "content",
-        label: { text: __("activitypub.compose.contentLabel") if __("activitypub.compose.contentLabel") else "Content" },
-        attributes: {
-          rows: "8",
-          required: "true"
-        },
-        endpoint: mediaEndpoint
+        label: "Content",
+        rows: 8,
+        field: {
+          attributes: {
+            editor: true,
+            "editor-endpoint": mediaEndpoint,
+            "editor-id": "ap-compose-content",
+            "editor-locale": application.locale if application else "en",
+            "editor-image-upload": true
+          }
+        }
       }) }}
     </div>
 
     {# Featured image #}
     <div class="ap-compose__media">
       {{ fileInput({
-        id: "photo",
         name: "photo",
-        label: { text: __("activitypub.compose.photoLabel") if __("activitypub.compose.photoLabel") else "Photo" },
-        endpoint: mediaEndpoint
+        label: "Photo",
+        field: {
+          attributes: {
+            endpoint: mediaEndpoint
+          }
+        },
+        accept: "image/*",
+        attributes: {
+          placeholder: "https://"
+        }
       }) }}
     </div>
 
     {# Tags / categories #}
     <div class="ap-compose__tags">
       {{ tagInput({
-        id: "category",
         name: "category",
-        label: { text: __("activitypub.compose.tagsLabel") if __("activitypub.compose.tagsLabel") else "Tags" }
+        label: "Tags",
+        optional: true,
+        hint: "Separate with commas"
       }) }}
     </div>
 
