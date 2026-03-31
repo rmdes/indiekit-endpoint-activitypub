@@ -1,0 +1,187 @@
+{% extends "document.njk" %}
+
+{% from "heading/macro.njk" import heading with context %}
+{% from "input/macro.njk" import input with context %}
+{% from "radios/macro.njk" import radios with context %}
+{% from "button/macro.njk" import button with context %}
+{% from "notification-banner/macro.njk" import notificationBanner with context %}
+
+{% block content %}
+  {% if saved %}
+    {{ notificationBanner({ type: "success", text: "Settings saved." }) }}
+  {% endif %}
+
+  {{ heading({ text: title }) }}
+
+  <form method="POST" action="{{ mountPath }}/admin/settings">
+    <input type="hidden" name="_csrf" value="{{ csrfToken }}">
+
+    {# ─── Instance & Client API ──────────────────────────────────── #}
+    <fieldset class="fieldset">
+      <legend class="fieldset__legend">Instance &amp; Client API</legend>
+      <p class="hint">Settings reported to Mastodon-compatible clients (Phanpy, Elk, Moshidon).</p>
+
+      {{ input({
+        name: "instanceLanguages",
+        label: "Instance languages",
+        hint: "Comma-separated ISO 639-1 codes (e.g. en,fr,de). Default: " + defaults.instanceLanguages | join(","),
+        value: settings.instanceLanguages | join(","),
+        type: "text"
+      }) }}
+
+      {{ input({
+        name: "maxCharacters",
+        label: "Max characters per status",
+        hint: "Character limit shown to clients. Default: " + defaults.maxCharacters,
+        value: settings.maxCharacters,
+        type: "number"
+      }) }}
+
+      {{ input({
+        name: "maxMediaAttachments",
+        label: "Max media attachments",
+        hint: "Per-status media file limit. Default: " + defaults.maxMediaAttachments,
+        value: settings.maxMediaAttachments,
+        type: "number"
+      }) }}
+
+      {{ radios({
+        name: "defaultVisibility",
+        label: "Default post visibility",
+        hint: "Default visibility for new posts. Default: " + defaults.defaultVisibility,
+        items: [
+          { value: "public", text: "Public", checked: settings.defaultVisibility == "public" },
+          { value: "unlisted", text: "Unlisted", checked: settings.defaultVisibility == "unlisted" },
+          { value: "private", text: "Followers only", checked: settings.defaultVisibility == "private" }
+        ]
+      }) }}
+
+      {{ input({
+        name: "defaultLanguage",
+        label: "Default post language",
+        hint: "ISO 639-1 code (e.g. en, fr). Default: " + defaults.defaultLanguage,
+        value: settings.defaultLanguage,
+        type: "text"
+      }) }}
+    </fieldset>
+
+    {# ─── Federation & Delivery ──────────────────────────────────── #}
+    <fieldset class="fieldset">
+      <legend class="fieldset__legend">Federation &amp; Delivery</legend>
+      <p class="hint">Controls how content is stored, retained, and delivered to followers.</p>
+
+      {{ input({
+        name: "timelineRetention",
+        label: "Timeline retention (items)",
+        hint: "Max items in the AP timeline. 0 = unlimited. Default: " + defaults.timelineRetention,
+        value: settings.timelineRetention,
+        type: "number"
+      }) }}
+
+      {{ input({
+        name: "notificationRetentionDays",
+        label: "Notification retention (days)",
+        hint: "Days to keep notifications. 0 = forever. Default: " + defaults.notificationRetentionDays,
+        value: settings.notificationRetentionDays,
+        type: "number"
+      }) }}
+
+      {{ input({
+        name: "activityRetentionDays",
+        label: "Activity log retention (days)",
+        hint: "Days to keep activity log entries. 0 = forever. Default: " + defaults.activityRetentionDays,
+        value: settings.activityRetentionDays,
+        type: "number"
+      }) }}
+
+      {{ input({
+        name: "replyChainDepth",
+        label: "Reply chain depth",
+        hint: "Max parent posts fetched for thread context. Default: " + defaults.replyChainDepth,
+        value: settings.replyChainDepth,
+        type: "number"
+      }) }}
+
+      {{ input({
+        name: "broadcastBatchSize",
+        label: "Broadcast batch size",
+        hint: "Followers per delivery batch. Default: " + defaults.broadcastBatchSize,
+        value: settings.broadcastBatchSize,
+        type: "number"
+      }) }}
+
+      {{ input({
+        name: "broadcastBatchDelay",
+        label: "Broadcast batch delay (ms)",
+        hint: "Delay between delivery batches in milliseconds. Default: " + defaults.broadcastBatchDelay,
+        value: settings.broadcastBatchDelay,
+        type: "number"
+      }) }}
+
+      {{ input({
+        name: "parallelWorkers",
+        label: "Parallel delivery workers",
+        hint: "Redis queue workers. 0 = in-process queue. Default: " + defaults.parallelWorkers,
+        value: settings.parallelWorkers,
+        type: "number"
+      }) }}
+
+      {{ radios({
+        name: "logLevel",
+        label: "Federation log level",
+        hint: "Fedify log verbosity. Default: " + defaults.logLevel,
+        items: [
+          { value: "debug", text: "Debug", checked: settings.logLevel == "debug" },
+          { value: "info", text: "Info", checked: settings.logLevel == "info" },
+          { value: "warning", text: "Warning", checked: settings.logLevel == "warning" },
+          { value: "error", text: "Error", checked: settings.logLevel == "error" }
+        ]
+      }) }}
+    </fieldset>
+
+    {# ─── Migration ──────────────────────────────────────────────── #}
+    <fieldset class="fieldset">
+      <legend class="fieldset__legend">Migration</legend>
+      <p class="hint">Controls the speed of Mastodon account re-follow processing.</p>
+
+      {{ input({
+        name: "refollowBatchSize",
+        label: "Refollow batch size",
+        hint: "Accounts per refollow batch. Default: " + defaults.refollowBatchSize,
+        value: settings.refollowBatchSize,
+        type: "number"
+      }) }}
+
+      {{ input({
+        name: "refollowDelay",
+        label: "Refollow delay per follow (ms)",
+        hint: "Delay between individual follow requests. Default: " + defaults.refollowDelay,
+        value: settings.refollowDelay,
+        type: "number"
+      }) }}
+
+      {{ input({
+        name: "refollowBatchDelay",
+        label: "Refollow batch delay (ms)",
+        hint: "Delay between refollow batches. Default: " + defaults.refollowBatchDelay,
+        value: settings.refollowBatchDelay,
+        type: "number"
+      }) }}
+    </fieldset>
+
+    {# ─── Security ───────────────────────────────────────────────── #}
+    <fieldset class="fieldset">
+      <legend class="fieldset__legend">Security</legend>
+
+      {{ input({
+        name: "refreshTokenTtlDays",
+        label: "Refresh token TTL (days)",
+        hint: "Days before OAuth refresh tokens expire. Access tokens never expire. Default: " + defaults.refreshTokenTtlDays,
+        value: settings.refreshTokenTtlDays,
+        type: "number"
+      }) }}
+    </fieldset>
+
+    {{ button({ text: "Save settings" }) }}
+  </form>
+{% endblock %}
