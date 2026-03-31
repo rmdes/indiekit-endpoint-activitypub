@@ -467,6 +467,31 @@ Own posts are added to `ap_timeline` by the AP syndicator after successful deliv
 - `filterAction: "hide"` — status removed from response
 - `filterAction: "warn"` — status kept with `filtered` array attached (Mastodon v2 format)
 
+### 40. Admin Settings Page (v3.13.0+)
+
+**Route:** `GET/POST {mountPath}/admin/settings`
+
+All configurable values are stored in a single MongoDB document in `ap_settings` collection. `lib/settings.js` provides `getSettings(collections)` which merges DB values over hardcoded defaults — missing keys always fall back.
+
+**Settings by section:**
+
+| Section | Keys |
+|---|---|
+| Instance & Client API | `instanceLanguages`, `maxCharacters`, `maxMediaAttachments`, `defaultVisibility`, `defaultLanguage` |
+| Federation & Delivery | `timelineRetention`, `notificationRetentionDays`, `activityRetentionDays`, `replyChainDepth`, `broadcastBatchSize`, `broadcastBatchDelay`, `parallelWorkers`, `logLevel` |
+| Migration | `refollowBatchSize`, `refollowDelay`, `refollowBatchDelay` |
+| Security | `refreshTokenTtlDays` |
+
+**How consumers read settings:**
+- Mastodon API routes: `req.app.locals.apSettings` (cached 1 minute by `load-settings.js` middleware)
+- Non-API code (federation, inbox, batch): `await getSettings(collections)` directly
+
+**Adding a new setting:**
+1. Add to `DEFAULTS` in `lib/settings.js`
+2. Add parsing in `lib/controllers/settings.js` POST handler
+3. Add form field in `views/activitypub-settings.njk`
+4. Wire into the consumer file with `settings.newKey` lookup
+
 ## Date Handling Convention
 
 **All dates MUST be stored as ISO 8601 strings.** This is mandatory across all Indiekit plugins.
