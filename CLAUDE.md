@@ -432,6 +432,39 @@ When creating posts via `POST /api/v1/statuses`:
 
 **Previous behavior (pre-3.9.4):** The handler created an `ap_timeline` entry immediately and used `processStatusContent()` to linkify URLs with hardcoded `/@username` patterns. This caused: (1) posts appearing in timeline before syndication, (2) broken mention URLs for non-Mastodon servers, (3) links lost in the Micropub content file.
 
+### 36. Mastodon API — Status IDs and Threading (v3.12.0+)
+
+**Status IDs are MongoDB ObjectId hex strings** (`_id.toString()`), NOT published-date cursors. This guarantees uniqueness — the previous cursor-based IDs (`encodeCursor(published)`) caused collisions when multiple posts shared the same second, resulting in `findTimelineItemById` returning wrong documents.
+
+**Key behaviors:**
+- `findTimelineItemById` does ObjectId-only lookup — no date parsing, no ambiguity
+- `in_reply_to_id` and `in_reply_to_account_id` are batch-resolved via `resolve-reply-ids.js` using parent's `_id.toString()` and `remoteActorId(author.url)`
+- Pagination uses ObjectId ordering (`{ _id: -1 }`) — ObjectIds have a 4-byte timestamp prefix so chronological sort works
+- `encodeCursor`/`decodeCursor` removed from the API layer entirely
+
+### 37. Mastodon API — Own Post Handling (v3.10.1+)
+
+Own posts are added to `ap_timeline` by the AP syndicator after successful delivery. The syndicator:
+- Builds content from JF2 properties via `buildTimelineContent()` (synthesizes content for likes/bookmarks/reposts)
+- Linkifies `@mentions` using WebFinger-resolved profile URLs
+- Stores resolved mentions with `actorUrl` for proper serialization
+
+**Read-time enrichment by `serializeStatus`:**
+- **Permalink** — appended for own posts (detected via `author.url === _localPublicationUrl`). Matches the `🔗` link in federated AS2 content. Done at read time so it survives timeline cleanup/backfill.
+- **`@mention` links** — stored at write time on the `ap_timeline` entry with resolved `actorUrl` for deterministic Mastodon account IDs.
+
+### 38. Mastodon API — Access Tokens (v3.12.4+)
+
+**Access tokens do not expire.** They are valid until revoked, matching Mastodon's behavior. The previous 1-hour TTL caused Phanpy/Elk/Moshidon sessions to break silently. Refresh tokens expire after 90 days.
+
+### 39. Mastodon API — Timeline Filtering (v3.12.5+)
+
+**Reply filtering:** Public and hashtag timelines exclude replies (`inReplyTo: { $exists: false }`). Replies only appear in the context/thread view and the home timeline. This matches Mastodon/Pixelfed behavior.
+
+**Keyword filters:** The filters CRUD (`GET/POST/PUT/DELETE /api/v2/filters`) stores filters in `ap_filters` with keywords in `ap_filter_keywords`. `apply-filters.js` loads active filters per context, compiles keyword regexes, and applies them after status serialization:
+- `filterAction: "hide"` — status removed from response
+- `filterAction: "warn"` — status kept with `filtered` array attached (Mastodon v2 format)
+
 ## Date Handling Convention
 
 **All dates MUST be stored as ISO 8601 strings.** This is mandatory across all Indiekit plugins.
