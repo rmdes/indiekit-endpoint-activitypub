@@ -1119,6 +1119,7 @@ export default class ActivityPubEndpoint {
         federation: this._federation,
         followActor: (url, info) => pluginRef.followActor(url, info),
         unfollowActor: (url) => pluginRef.unfollowActor(url),
+        broadcastActorUpdate: () => pluginRef.broadcastActorUpdate(),
         loadRsaKey: () => pluginRef._loadRsaPrivateKey(),
       },
     });
