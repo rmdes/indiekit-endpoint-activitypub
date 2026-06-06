@@ -1,6 +1,6 @@
 {
   "name": "@rmdes/indiekit-endpoint-activitypub",
-  "version": "3.13.7",
+  "version": "3.13.8",
   "description": "ActivityPub federation endpoint for Indiekit via Fedify. Adds full fediverse support: actor, inbox, outbox, followers, following, syndication, and Mastodon migration.",
   "keywords": [
     "indiekit",
@@ -22,6 +22,9 @@
   "type": "module",
   "main": "index.js",
   "exports": "./index.js",
+  "scripts": {
+    "test": "node --test tests/*.test.js"
+  },
   "files": [
     "assets",
     "lib",
