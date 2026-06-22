@@ -1,5 +1,6 @@
 import express from "express";
 import { waitForReady } from "@rmdes/indiekit-startup-gate";
+import { ACTIVITYPUB_BLOCKS } from "./lib/blocks.js";
 
 import { setupFederation, buildPersonActor } from "./lib/federation-setup.js";
 import { createMastodonRouter } from "./lib/mastodon/router.js";
@@ -171,6 +172,10 @@ export default class ActivityPubEndpoint {
     this._collections = {};
     this._federation = null;
     this._fedifyMiddleware = null;
+  }
+
+  get blocks() {
+    return ACTIVITYPUB_BLOCKS;
   }
 
   get navigationItems() {
