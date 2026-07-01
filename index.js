@@ -1,6 +1,8 @@
 import express from "express";
 import { waitForReady } from "@rmdes/indiekit-startup-gate";
 import { ACTIVITYPUB_BLOCKS } from "./lib/blocks.js";
+import { resolveOptions } from "./lib/defaults.js";
+import { buildNavigationItems } from "./lib/navigation.js";
 
 import { setupFederation, buildPersonActor } from "./lib/federation-setup.js";
 import { createMastodonRouter } from "./lib/mastodon/router.js";
@@ -137,35 +139,11 @@ import {
   settingsPostController,
 } from "./lib/controllers/settings.js";
 
-const defaults = {
-  mountPath: "/activitypub",
-  actor: {
-    handle: "rick",
-    name: "",
-    summary: "",
-    icon: "",
-  },
-  checked: true,
-  alsoKnownAs: "",
-  activityRetentionDays: 90,
-  storeRawActivities: false,
-  redisUrl: "",
-  parallelWorkers: 5,
-  actorType: "Person",
-  logLevel: "warning",
-  timelineRetention: 1000,
-  notificationRetentionDays: 30,
-  debugDashboard: false,
-  debugPassword: "",
-  defaultVisibility: "public", // "public" | "unlisted" | "followers"
-};
-
 export default class ActivityPubEndpoint {
   name = "ActivityPub endpoint";
 
   constructor(options = {}) {
-    this.options = { ...defaults, ...options };
-    this.options.actor = { ...defaults.actor, ...options.actor };
+    this.options = resolveOptions(options);
     this.mountPath = this.options.mountPath;
 
     this._publicationUrl = "";
@@ -179,48 +157,7 @@ export default class ActivityPubEndpoint {
   }
 
   get navigationItems() {
-    return [
-      {
-        href: this.options.mountPath,
-        text: "activitypub.title",
-        requiresDatabase: true,
-      },
-      {
-        href: `${this.options.mountPath}/admin/reader`,
-        text: "activitypub.reader.title",
-        requiresDatabase: true,
-      },
-      {
-        href: `${this.options.mountPath}/admin/reader/notifications`,
-        text: "activitypub.notifications.title",
-        requiresDatabase: true,
-      },
-      {
-        href: `${this.options.mountPath}/admin/reader/messages`,
-        text: "activitypub.messages.title",
-        requiresDatabase: true,
-      },
-      {
-        href: `${this.options.mountPath}/admin/reader/moderation`,
-        text: "activitypub.moderation.title",
-        requiresDatabase: true,
-      },
-      {
-        href: `${this.options.mountPath}/admin/my-profile`,
-        text: "activitypub.myProfile.title",
-        requiresDatabase: true,
-      },
-      {
-        href: `${this.options.mountPath}/admin/federation`,
-        text: "activitypub.federationMgmt.title",
-        requiresDatabase: true,
-      },
-      {
-        href: `${this.options.mountPath}/admin/settings`,
-        text: "activitypub.settings.title",
-        requiresDatabase: true,
-      },
-    ];
+    return buildNavigationItems(this.options.mountPath);
   }
 
   /**
