@@ -23,101 +23,11 @@ import {
   jf2ToAS2Activity,
 } from "./lib/jf2-to-as2.js";
 import { createSyndicator } from "./lib/syndicator.js";
-import { dashboardController } from "./lib/controllers/dashboard.js";
-import {
-  readerController,
-  notificationsController,
-  markAllNotificationsReadController,
-  clearAllNotificationsController,
-  deleteNotificationController,
-  composeController,
-  submitComposeController,
-  remoteProfileController,
-  followController,
-  unfollowController,
-  postDetailController,
-} from "./lib/controllers/reader.js";
-import {
-  likeController,
-  unlikeController,
-  boostController,
-  unboostController,
-} from "./lib/controllers/interactions.js";
-import {
-  muteController,
-  unmuteController,
-  blockController,
-  unblockController,
-  blockServerController,
-  unblockServerController,
-  moderationController,
-  filterModeController,
-} from "./lib/controllers/moderation.js";
-import { followersController } from "./lib/controllers/followers.js";
-import {
-  approveFollowController,
-  rejectFollowController,
-} from "./lib/controllers/follow-requests.js";
-import { followingController } from "./lib/controllers/following.js";
-import { activitiesController } from "./lib/controllers/activities.js";
-import {
-  migrateGetController,
-  migratePostController,
-  migrateImportController,
-} from "./lib/controllers/migrate.js";
-import {
-  profileGetController,
-  profilePostController,
-} from "./lib/controllers/profile.js";
-import {
-  featuredGetController,
-  featuredPinController,
-  featuredUnpinController,
-} from "./lib/controllers/featured.js";
-import {
-  featuredTagsGetController,
-  featuredTagsAddController,
-  featuredTagsRemoveController,
-} from "./lib/controllers/featured-tags.js";
-import { resolveController } from "./lib/controllers/resolve.js";
-import { tagTimelineController } from "./lib/controllers/tag-timeline.js";
-import { apiTimelineController, countNewController, markReadController } from "./lib/controllers/api-timeline.js";
-import {
-  exploreController,
-  exploreApiController,
-  instanceSearchApiController,
-  instanceCheckApiController,
-  popularAccountsApiController,
-} from "./lib/controllers/explore.js";
-import {
-  followTagController,
-  unfollowTagController,
-  followTagGloballyController,
-  unfollowTagGloballyController,
-} from "./lib/controllers/follow-tag.js";
-import {
-  listTabsController,
-  addTabController,
-  removeTabController,
-  reorderTabsController,
-} from "./lib/controllers/tabs.js";
-import { hashtagExploreApiController } from "./lib/controllers/hashtag-explore.js";
+import { buildAdminRoutes } from "./lib/routes/admin-routes.js";
+// Controllers used by non-admin route getters (routesPublic); the admin-route
+// controllers now live in lib/routes/admin-routes.js.
 import { publicProfileController } from "./lib/controllers/public-profile.js";
-import {
-  messagesController,
-  messageComposeController,
-  submitMessageController,
-  markAllMessagesReadController,
-  clearAllMessagesController,
-  deleteMessageController,
-} from "./lib/controllers/messages.js";
 import { authorizeInteractionController } from "./lib/controllers/authorize-interaction.js";
-import { myProfileController } from "./lib/controllers/my-profile.js";
-import {
-  refollowPauseController,
-  refollowResumeController,
-  refollowStatusController,
-} from "./lib/controllers/refollow.js";
 import { startBatchRefollow } from "./lib/batch-refollow.js";
 import { logActivity } from "./lib/activity-log.js";
 import { batchBroadcast } from "./lib/batch-broadcast.js";
@@ -126,18 +36,6 @@ import { runSeparateMentionsMigration } from "./lib/migrations/separate-mentions
 import { loadBlockedServersToRedis } from "./lib/storage/server-blocks.js";
 import { scheduleKeyRefresh } from "./lib/key-refresh.js";
 import { startInboxProcessor } from "./lib/inbox-queue.js";
-import { deleteFederationController } from "./lib/controllers/federation-delete.js";
-import {
-  federationMgmtController,
-  rebroadcastController,
-  viewApJsonController,
-  broadcastActorUpdateController,
-  lookupObjectController,
-} from "./lib/controllers/federation-mgmt.js";
-import {
-  settingsGetController,
-  settingsPostController,
-} from "./lib/controllers/settings.js";
 
 export default class ActivityPubEndpoint {
   name = "ActivityPub endpoint";
@@ -247,93 +145,7 @@ export default class ActivityPubEndpoint {
    * Authenticated admin routes — mounted at mountPath, behind IndieAuth.
    */
   get routes() {
-    const router = express.Router(); // eslint-disable-line new-cap
-    const mp = this.options.mountPath;
-
-    router.get("/", dashboardController(mp));
-    router.get("/admin/reader", readerController(mp));
-    router.get("/admin/reader/tag", tagTimelineController(mp));
-    router.get("/admin/reader/api/timeline", apiTimelineController(mp));
-    router.get("/admin/reader/api/timeline/count-new", countNewController());
-    router.post("/admin/reader/api/timeline/mark-read", markReadController());
-    router.get("/admin/reader/explore", exploreController(mp));
-    router.get("/admin/reader/api/explore", exploreApiController(mp));
-    router.get("/admin/reader/api/explore/hashtag", hashtagExploreApiController(mp));
-    router.get("/admin/reader/api/instances", instanceSearchApiController(mp));
-    router.get("/admin/reader/api/instance-check", instanceCheckApiController(mp));
-    router.get("/admin/reader/api/popular-accounts", popularAccountsApiController(mp));
-    router.get("/admin/reader/api/tabs", listTabsController(mp));
-    router.post("/admin/reader/api/tabs", addTabController(mp));
-    router.post("/admin/reader/api/tabs/remove", removeTabController(mp));
-    router.patch("/admin/reader/api/tabs/reorder", reorderTabsController(mp));
-    router.post("/admin/reader/follow-tag", followTagController(mp));
-    router.post("/admin/reader/unfollow-tag", unfollowTagController(mp));
-    router.post("/admin/reader/follow-tag-global", followTagGloballyController(mp, this));
-    router.post("/admin/reader/unfollow-tag-global", unfollowTagGloballyController(mp, this));
-    router.get("/admin/reader/notifications", notificationsController(mp));
-    router.post("/admin/reader/notifications/mark-read", markAllNotificationsReadController(mp));
-    router.post("/admin/reader/notifications/clear", clearAllNotificationsController(mp));
-    router.post("/admin/reader/notifications/delete", deleteNotificationController(mp));
-    router.get("/admin/reader/messages", messagesController(mp));
-    router.get("/admin/reader/messages/compose", messageComposeController(mp, this));
-    router.post("/admin/reader/messages/compose", submitMessageController(mp, this));
-    router.post("/admin/reader/messages/mark-read", markAllMessagesReadController(mp));
-    router.post("/admin/reader/messages/clear", clearAllMessagesController(mp));
-    router.post("/admin/reader/messages/delete", deleteMessageController(mp));
-    router.get("/admin/reader/compose", composeController(mp, this));
-    router.post("/admin/reader/compose", submitComposeController(mp, this));
-    router.post("/admin/reader/like", likeController(mp, this));
-    router.post("/admin/reader/unlike", unlikeController(mp, this));
-    router.post("/admin/reader/boost", boostController(mp, this));
-    router.post("/admin/reader/unboost", unboostController(mp, this));
-    router.get("/admin/reader/resolve", resolveController(mp, this));
-    router.get("/admin/reader/profile", remoteProfileController(mp, this));
-    router.get("/admin/reader/post", postDetailController(mp, this));
-    router.post("/admin/reader/follow", followController(mp, this));
-    router.post("/admin/reader/unfollow", unfollowController(mp, this));
-    router.get("/admin/reader/moderation", moderationController(mp));
-    router.post("/admin/reader/moderation/filter-mode", filterModeController(mp));
-    router.post("/admin/reader/mute", muteController(mp, this));
-    router.post("/admin/reader/unmute", unmuteController(mp, this));
-    router.post("/admin/reader/block", blockController(mp, this));
-    router.post("/admin/reader/unblock", unblockController(mp, this));
-    router.post("/admin/reader/block-server", blockServerController(mp));
-    router.post("/admin/reader/unblock-server", unblockServerController(mp));
-    router.get("/admin/followers", followersController(mp));
-    router.post("/admin/followers/approve", approveFollowController(mp, this));
-    router.post("/admin/followers/reject", rejectFollowController(mp, this));
-    router.get("/admin/following", followingController(mp));
-    router.get("/admin/activities", activitiesController(mp));
-    router.get("/admin/featured", featuredGetController(mp));
-    router.post("/admin/featured/pin", featuredPinController(mp, this));
-    router.post("/admin/featured/unpin", featuredUnpinController(mp, this));
-    router.get("/admin/tags", featuredTagsGetController(mp));
-    router.post("/admin/tags/add", featuredTagsAddController(mp, this));
-    router.post("/admin/tags/remove", featuredTagsRemoveController(mp, this));
-    router.get("/admin/profile", profileGetController(mp));
-    router.post("/admin/profile", profilePostController(mp, this));
-    router.get("/admin/my-profile", myProfileController(this));
-    router.get("/admin/migrate", migrateGetController(mp, this.options));
-    router.post("/admin/migrate", migratePostController(mp, this.options));
-    router.post(
-      "/admin/migrate/import",
-      migrateImportController(mp, this.options),
-    );
-    router.post("/admin/refollow/pause", refollowPauseController(mp, this));
-    router.post("/admin/refollow/resume", refollowResumeController(mp, this));
-    router.get("/admin/refollow/status", refollowStatusController(mp));
-    router.post("/admin/federation/delete", deleteFederationController(mp, this));
-    router.get("/admin/federation", federationMgmtController(mp, this));
-    router.post("/admin/federation/rebroadcast", rebroadcastController(mp, this));
-    router.get("/admin/federation/ap-json", viewApJsonController(mp, this));
-    router.post("/admin/federation/broadcast-actor", broadcastActorUpdateController(mp, this));
-    router.get("/admin/federation/lookup", lookupObjectController(mp, this));
-
-    // Settings
-    router.get("/admin/settings", settingsGetController(mp));
-    router.post("/admin/settings", settingsPostController(mp));
-
-    return router;
+    return buildAdminRoutes(this);
   }
 
   /**
