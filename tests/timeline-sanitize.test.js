@@ -2,9 +2,9 @@
  * Inbound content security (lib/timeline-store.js).
  *
  * sanitizeContent is the XSS chokepoint for ALL inbound timeline/notification
- * HTML from untrusted remote servers. replaceCustomEmoji (the hardened variant
- * here — distinct from emoji-utils.js) validates emoji URL schemes and escapes
- * attributes. Both pure; tested directly.
+ * HTML from untrusted remote servers. replaceCustomEmoji (now the single
+ * canonical implementation — the unhardened emoji-utils.js copy was removed in
+ * 3.13.10) validates emoji URL schemes and escapes attributes. Both pure.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";

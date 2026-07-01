@@ -1,12 +1,12 @@
 /**
- * Pure content post-processing helpers (applied after sanitize in the item
- * pipeline): content-utils.js + emoji-utils.js. All pure string transforms.
+ * Pure content post-processing helpers (content-utils.js). Pure string transforms.
+ * (Custom-emoji rendering is covered in timeline-sanitize.test.js against the
+ * single hardened replaceCustomEmoji in timeline-store.js.)
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
 import { shortenDisplayUrls, collapseHashtagStuffing } from "../lib/content-utils.js";
-import { replaceCustomEmoji } from "../lib/emoji-utils.js";
 
 // --- shortenDisplayUrls ---
 
@@ -47,29 +47,4 @@ test("collapseHashtagStuffing: leaves prose-heavy paragraphs alone even with 3 t
     "<p>This is a genuine paragraph with plenty of real prose content that dominates " +
     'the text well beyond the hashtags <a href="/a">#a</a><a href="/b">#b</a><a href="/c">#c</a></p>';
   assert.equal(collapseHashtagStuffing(html), html); // hashtags < 80% of text
-});
-
-// --- replaceCustomEmoji ---
-
-test("replaceCustomEmoji: replaces :shortcode: with an <img> tag", () => {
-  const out = replaceCustomEmoji("hi :blobcat: there", [
-    { shortcode: "blobcat", url: "https://emoji.example/blobcat.png" },
-  ]);
-  assert.ok(out.includes('<img src="https://emoji.example/blobcat.png"'));
-  assert.ok(out.includes('alt=":blobcat:"')); // shortcode is preserved in alt/title by design
-  assert.ok(out.startsWith("hi <img"), "shortcode in body replaced by the img");
-  assert.ok(out.endsWith("> there"), "surrounding text preserved");
-});
-
-test("replaceCustomEmoji: no emojis or no html → passthrough", () => {
-  assert.equal(replaceCustomEmoji("hi :x:", []), "hi :x:");
-  assert.equal(replaceCustomEmoji("", [{ shortcode: "a", url: "u" }]), "");
-});
-
-test("replaceCustomEmoji: only replaces defined shortcodes, leaves others literal", () => {
-  const out = replaceCustomEmoji(":known: :unknown:", [
-    { shortcode: "known", url: "https://e/k.png" },
-  ]);
-  assert.ok(out.includes("<img"));
-  assert.ok(out.includes(":unknown:"), "undefined shortcode left as-is");
 });
