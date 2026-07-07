@@ -292,8 +292,9 @@ import { createFederation, InProcessMessageQueue } from "@fedify/fedify";
 // Crypto operations (key generation, import/export)
 import { exportJwk, generateCryptoKeyPair, importJwk } from "@fedify/fedify/sig";
 
-// ActivityStreams vocabulary types
-import { Person, Note, Article, Create, Follow, ... } from "@fedify/fedify/vocab";
+// ActivityStreams vocabulary types — standalone @fedify/vocab (NOT the deprecated
+// @fedify/fedify/vocab shim; see Gotcha #40). Same class objects, so instanceof holds.
+import { Person, Note, Article, Create, Follow, ... } from "@fedify/vocab";
 
 // WRONG (Fedify 1.x style) — these no longer work:
 // import { Person, createFederation, exportJwk } from "@fedify/fedify";
@@ -716,6 +717,26 @@ curl -s "https://rmendes.net/nodeinfo/2.1" | jq .
 ### 38. FEP-8fcf Collection Synchronization — Outbound Only
 
 We pass `syncCollection: true` to Fedify's `sendActivity()` for outbound activities, which attaches `Collection-Synchronization` headers with partial follower digests (XOR'd SHA-256 hashes). However, the **receiving side** (parsing inbound headers, digest comparison, reconciliation) is NOT implemented by Fedify or by us. Remote servers that send Collection-Synchronization headers to us will have them ignored. Full FEP-8fcf compliance would require a `/followers-sync` endpoint and a reconciliation scheduler.
+
+### 39. Reading Tags — Use getTags(), NOT object.tag (v3.13.16+)
+
+Fedify vocab objects (returned by `.getObject()`, etc.) do **not** expose a `.tag` property — `object.tag` is always `undefined`. `object.tagIds` is also useless for the common case: inline `Mention`/`Hashtag` objects are anonymous (no `id`), so `tagIds` is empty even when tags exist. The **only** reliable path is the async iterator `object.getTags({ documentLoader })`, which materializes inline tags:
+
+```javascript
+const tagList = [];
+for await (const tag of object.getTags({ documentLoader: authLoader })) {
+  if (tag) tagList.push(tag);
+}
+const mentioned = tagList.some((t) => t instanceof Mention && t.href?.href === ourActorUrl);
+const hashtags = tagList.filter((t) => t instanceof Hashtag && t.name)
+  .map((t) => t.name.toString().replace(/^#/, "").toLowerCase());
+```
+
+Match with `instanceof Mention` / `instanceof Hashtag` — `tag.type` is also `undefined` on vocab objects, so string comparisons like `tag.type === "Mention"` silently never match. This was a latent dead-code bug: inbound `@`-mention notifications and followed-hashtag ingestion (`inbox-handlers.js`) never fired because they read `object.tag`. Vocab types import from `@fedify/vocab` (see below); its classes are identity-equal to the deprecated `@fedify/fedify/vocab` shim, so `instanceof` holds against objects Fedify builds internally.
+
+### 40. Vocab Imports — @fedify/vocab (not @fedify/fedify/vocab) (v3.13.16+)
+
+ActivityStreams vocabulary types are imported from the standalone `@fedify/vocab` package (pinned exact `2.3.1`, matching `@fedify/fedify`), NOT the deprecated `@fedify/fedify/vocab` subpath shim. The shim re-exports `@fedify/vocab`'s **same class objects**, so `instanceof` checks work across the boundary and a Fedify-created object matches a `@fedify/vocab`-imported class. Core (`@fedify/fedify`) and crypto (`@fedify/fedify/sig`) imports are unchanged — only `/vocab` moved. When adding a vocab type, import from `@fedify/vocab`.
 
 ## Form Handling Convention
 
