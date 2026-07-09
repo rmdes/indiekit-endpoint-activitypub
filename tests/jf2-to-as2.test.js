@@ -67,3 +67,20 @@ test("jf2ToAS2Activity (Fedify path) also survives non-string categories", () =>
     jf2ToAS2Activity(note(["indieweb", personTag, null]), ACTOR, PUB),
   );
 });
+
+test("jf2ToAS2Activity: Note carries attributedTo (Fedify prop is `attribution`)", async () => {
+  const create = jf2ToAS2Activity(note([]), ACTOR, PUB);
+  const json = await create.toJsonLd({ format: "compact" });
+  // Regression for R3-1: passing `attributedTo` to new Note() is silently
+  // dropped by Fedify (it wants `attribution`), which shipped author-less Notes.
+  assert.equal(json.object.attributedTo, ACTOR, "Note must attribute the author");
+});
+
+test("jf2ToAS2Activity: Create wrapper mirrors the object's addressing + published", async () => {
+  const create = jf2ToAS2Activity(note([]), ACTOR, PUB);
+  const json = await create.toJsonLd({ format: "compact" });
+  // Regression for R3-5: AS2 activities don't inherit their object's to/cc.
+  assert.equal(json.to, "as:Public", "Create carries to");
+  assert.ok(String(json.cc || "").includes("/followers"), "Create carries cc:followers");
+  assert.ok(json.published, "Create carries published");
+});
