@@ -738,6 +738,15 @@ Match with `instanceof Mention` / `instanceof Hashtag` — `tag.type` is also `u
 
 ActivityStreams vocabulary types are imported from the standalone `@fedify/vocab` package (pinned exact `2.3.1`, matching `@fedify/fedify`), NOT the deprecated `@fedify/fedify/vocab` subpath shim. The shim re-exports `@fedify/vocab`'s **same class objects**, so `instanceof` checks work across the boundary and a Fedify-created object matches a `@fedify/vocab`-imported class. Core (`@fedify/fedify`) and crypto (`@fedify/fedify/sig`) imports are unchanged — only `/vocab` moved. When adding a vocab type, import from `@fedify/vocab`.
 
+### 41. Fedify Object props are the CONSTRUCTOR name, not the JSON-LD name (v3.13.19+)
+
+When building Fedify vocab objects (`new Note({...})`, `new Create({...})`, etc.), the option keys are Fedify's **constructor property names**, which differ from the AS2/JSON-LD field names. Passing a JSON-LD name is **silently dropped** — no error, the field just never serializes. The one that bit us: `attributedTo` (JSON-LD) is **`attribution`** on the constructor — `new Note({ attributedTo: uri })` ships an author-less Note. Others follow the same pattern (singular constructor prop → JSON-LD name), and Fedify uses a plural variant for arrays: `to`/`tos`, `cc`/`ccs`, `attribution` (single). Two consequences to remember:
+
+1. **Plain JSON-LD objects use the JSON-LD names** — in `jf2ToActivityStreams` (the content-negotiation path that builds bare object literals) `attributedTo` is CORRECT. Only the Fedify-vocab path (`jf2ToAS2Activity` → `new Note(...)`) needs `attribution`. Don't "fix" the plain path.
+2. **Activities don't inherit their object's addressing** — a `Create` wrapper needs its own `to`/`cc`/`published`; setting them only on the inner Note is not enough for servers that classify visibility from the Create.
+
+Verify vocab output by serializing (`await obj.toJsonLd({ format: "compact" })`) and asserting the field is present — a missing prop is invisible until you inspect the JSON (or a live actor). Regression tests live in `tests/jf2-to-as2.test.js`.
+
 ## Form Handling Convention
 
 Two form patterns are used in this plugin. New forms should follow the appropriate pattern.
