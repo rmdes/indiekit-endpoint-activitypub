@@ -765,6 +765,10 @@ mongosh "$CLOUDRON_MONGODB_URL" --quiet --eval "db.ap_oauth_tokens.deleteOne({ac
 
 **Never add a route to `stubs.js` that also exists in a real router** — stubsRouter mounts LAST, so the stub is silently shadowed dead code (and if mount order ever changed, the stub would shadow the real one).
 
+**Public reads (v3.13.21+):** `GET /accounts/:id`, `/:id/statuses`, `/:id/followers`, `/:id/following`, `/:id/featured_tags` are PUBLIC (no `tokenRequired`) to match Mastodon — the same data is already public via ActivityPub, and Phanpy's instance-browse view (`#/<host>/a/<id>`) calls them without a token. Do not re-add auth to these.
+
+**Degraded numeric usernames (v3.13.21+):** an all-digits username (e.g. `116296…@lgbtqia.space`) means the actor couldn't be fetched at ingest (typically an Authorized-Fetch server 401ing unsigned GETs) and the URL-derived fallback was stored. The repair loop: `resolveRemoteAccount`/`fetchRemoteCollectionMemberUrls` do SIGNED-first lookups (`lookupWithSecurity` + authenticated documentLoader — never plain `ctx.lookupObject` for remote actors); the account cache carries identity (username/acct/displayName/avatar); `serializeAccount` repairs all-digits usernames from that cache; and the timeline enrichment durably repairs stored `ap_timeline` author docs on cache-miss resolution. Numeric mentions inside stored post CONTENT html are not rewritten.
+
 ## Form Handling Convention
 
 Two form patterns are used in this plugin. New forms should follow the appropriate pattern.
