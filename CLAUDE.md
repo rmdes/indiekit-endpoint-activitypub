@@ -747,6 +747,24 @@ When building Fedify vocab objects (`new Note({...})`, `new Create({...})`, etc.
 
 Verify vocab output by serializing (`await obj.toJsonLd({ format: "compact" })`) and asserting the field is present — a missing prop is invisible until you inspect the JSON (or a live actor). Regression tests live in `tests/jf2-to-as2.test.js`.
 
+### 42. Mastodon API — Account ids are sha256(url); use isLocalAccountId() (v3.13.20+)
+
+Account ids (local AND remote) are `sha256(actorUrl).slice(0,24)` via `accountId()` in `helpers/id-mapping.js` — NOT the profile's Mongo `_id`. Any route that must decide "is this id the local account?" MUST use `isLocalAccountId(id, profile)` (url-hash comparison + legacy `_id` fallback). Comparing `profile._id.toString() === id` directly was the bug that made `/accounts/:id/followers|following` return `[]` for every profile and routed the local account through remote-AP self-resolution. Note the two id schemes coexist: **accounts** = url hash; **statuses** = Mongo ObjectId hex (gotcha #36). Also: `token.scopes` is an **array** (`["read","write"]`), not a `scope` string.
+
+**Remote followers/following lists** are served by fetching the first page of the remote actor's AP collection (`fetchRemoteCollectionMemberUrls` in `helpers/resolve-account.js`, itemIds only — never per-member actor fetches), enriched from locally-known ap_followers/ap_following docs. Servers with Mastodon's `hide_collections` publish `totalItems` but no `first` → graceful `[]` (counts still show). Don't "fix" an empty list for such accounts — it matches Mastodon's own behavior.
+
+**Debugging the API with a real token:** access tokens are stored PLAINTEXT in `ap_oauth_tokens`; mint a temporary one inside the container and delete it after:
+
+```bash
+cloudron exec --app rmendes.net -- bash -c '
+TESTTOK="test_$(od -An -tx1 -N16 /dev/urandom | tr -d " \n")"
+mongosh "$CLOUDRON_MONGODB_URL" --quiet --eval "db.ap_oauth_tokens.insertOne({accessToken:\"$TESTTOK\",revokedAt:null,scopes:[\"read\",\"write\",\"follow\"],clientId:\"debug\",createdAt:new Date().toISOString()})"
+curl -s -H "Authorization: Bearer $TESTTOK" http://127.0.0.1:8080/api/v1/accounts/verify_credentials
+mongosh "$CLOUDRON_MONGODB_URL" --quiet --eval "db.ap_oauth_tokens.deleteOne({accessToken:\"$TESTTOK\"})"'
+```
+
+**Never add a route to `stubs.js` that also exists in a real router** — stubsRouter mounts LAST, so the stub is silently shadowed dead code (and if mount order ever changed, the stub would shadow the real one).
+
 ## Form Handling Convention
 
 Two form patterns are used in this plugin. New forms should follow the appropriate pattern.
