@@ -84,3 +84,27 @@ test("jf2ToAS2Activity: Create wrapper mirrors the object's addressing + publish
   assert.ok(String(json.cc || "").includes("/followers"), "Create carries cc:followers");
   assert.ok(json.published, "Create carries published");
 });
+
+test("visibility is safe-by-default: only public/unlisted reach the Public collection", async () => {
+  const PUBLIC = "https://www.w3.org/ns/activitystreams#Public";
+  const leaks = (as2) => {
+    const to = JSON.stringify(as2.object?.to ?? as2.to ?? "");
+    const cc = JSON.stringify(as2.object?.cc ?? as2.cc ?? "");
+    return to.includes(PUBLIC) || cc.includes(PUBLIC);
+  };
+  // Regression for the privacy leak: private/direct/unknown must NEVER address Public.
+  for (const vis of ["private", "direct", "followers", "weird"]) {
+    const plain = jf2ToActivityStreams(
+      { "post-type": "note", content: { html: "<p>x</p>" }, url: "https://rmendes.net/notes/x", visibility: vis },
+      ACTOR, PUB,
+    );
+    assert.equal(leaks(plain), false, `plain path leaked PUBLIC for visibility=${vis}`);
+
+    const fedify = jf2ToAS2Activity(
+      { "post-type": "note", content: { html: "<p>x</p>" }, url: "https://rmendes.net/notes/x", visibility: vis },
+      ACTOR, PUB,
+    );
+    const json = await fedify.toJsonLd({ format: "compact" });
+    assert.equal(leaks(json), false, `Fedify path leaked PUBLIC for visibility=${vis}`);
+  }
+});
