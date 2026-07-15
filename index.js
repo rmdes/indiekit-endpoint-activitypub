@@ -370,6 +370,27 @@ export default class ActivityPubEndpoint {
       console.error("[ActivityPub] Migration separate-mentions failed:", error.message);
     });
 
+    // Repair tokens poisoned by the code-exchange expiry leak (see oauth.js):
+    // access tokens are permanent (never expire), so any token doc that has an
+    // accessToken AND an expiresAt inherited that from its authorization code
+    // and 401s ~10 min after login. Clear it so existing sessions survive
+    // without re-auth. Idempotent — after this runs once, new tokens never get
+    // expiresAt, so subsequent boots match nothing. ponytail: inline updateMany,
+    // promote to a migration file only if more token repairs accrue.
+    this._collections.ap_oauth_tokens
+      .updateMany(
+        { accessToken: { $exists: true }, expiresAt: { $exists: true } },
+        { $unset: { expiresAt: "" } },
+      )
+      .then(({ modifiedCount }) => {
+        if (modifiedCount > 0) {
+          console.log(`[ActivityPub] Repair: cleared inherited expiry on ${modifiedCount} access tokens`);
+        }
+      })
+      .catch((error) => {
+        console.error("[ActivityPub] Token expiry repair failed:", error.message);
+      });
+
     // Defer background workers until host is ready
     const refollowOptions = {
       federation: this._federation,
