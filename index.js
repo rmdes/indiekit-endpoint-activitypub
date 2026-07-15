@@ -439,6 +439,19 @@ export default class ActivityPubEndpoint {
           });
         });
 
+        // Backfill deliverable addresses for followers stored with no inbox
+        // (legacy wrong-accessor bug). Bounded to the both-empty set, so it's a
+        // handful of remote lookups and a no-op once repaired.
+        import("./lib/migrations/backfill-follower-inbox.js").then(({ backfillFollowerInbox }) => {
+          backfillFollowerInbox(refollowOptions).then((result) => {
+            if (result.updated > 0) {
+              console.log(`[ActivityPub] Follower inbox backfill: repaired ${result.updated}/${result.attempted} undeliverable followers`);
+            }
+          }).catch((error) => {
+            console.warn("[ActivityPub] Follower inbox backfill failed:", error.message);
+          });
+        });
+
         // Start async inbox queue processor (processes one item every 3s)
         console.info("[ActivityPub] Init: starting inbox queue processor");
         this._inboxProcessorInterval = startInboxProcessor(
