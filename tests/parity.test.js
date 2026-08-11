@@ -18,12 +18,6 @@
  * │ the specification of what parity means.                              │
  * └──────────────────────────────────────────────────────────────────────┘
  *
- * COVERAGE GAP — AP-D4 (two thread builders) is NOT covered here. Comparing
- * them requires driving `controllers/post-detail.js`, which renders Nunjucks
- * and needs the Indiekit frontend's configured view environment. It lands in
- * Stage 0.4 (route-level integration) once that harness exists. Until then
- * AP-D4 has no parity guard — do not read this suite's green as covering it.
- *
  * Plan: documentation-central/plans/2026-08-10-activitypub-single-lane-core-plan.md
  */
 import assert from "node:assert/strict";
@@ -41,6 +35,7 @@ import {
   markNotificationsRead,
 } from "../lib/storage/notifications.js";
 import { getMutedUrls, getAllMuted } from "../lib/storage/moderation.js";
+import { loadParentChain } from "../lib/controllers/post-detail.js";
 import {
   loadModerationData,
   applyModerationFilters,
@@ -355,6 +350,76 @@ describe("parity: follow requests (AP-D8)", () => {
 
       const remaining = await mongo.collections.ap_pending_follows.countDocuments();
       assert.equal(remaining, 0, "an authorized request must leave the pending list");
+    },
+  );
+});
+
+// ───────────────────────────────────────────────────────────────────────────
+// AP-D4 — thread building
+// ───────────────────────────────────────────────────────────────────────────
+
+describe("parity: thread building (AP-D4)", () => {
+  // notes/15 is the tip of a 6-deep reply chain rooted at notes/9.
+  const DEEP_TIP = "https://remote.example/notes/15";
+
+  /** Ancestors as the reader builds them. */
+  async function readerAncestors() {
+    const tip = await mongo.collections.ap_timeline.findOne({ uid: DEEP_TIP });
+    return loadParentChain(
+      null, // ctx — unused, every ancestor in the fixture is local
+      null, // documentLoader
+      mongo.collections.ap_timeline,
+      tip.inReplyTo,
+    );
+  }
+
+  /** Ancestors as the Mastodon lane builds them. */
+  async function mastodonAncestors() {
+    const tip = await mongo.collections.ap_timeline.findOne({ uid: DEEP_TIP });
+
+    const res = await request(app)
+      .get(`/api/v1/statuses/${tip._id.toString()}/context`)
+      .set("Authorization", BEARER);
+
+    assert.equal(res.status, 200, `context returned ${res.status}`);
+    return res.body.ancestors;
+  }
+
+  it("the fixture chain is deeper than the reader's default maxDepth", async () => {
+    const mastodon = await mastodonAncestors();
+    assert.ok(
+      mastodon.length > 5,
+      `chain is ${mastodon.length} deep; must exceed 5 or AP-D4 is untestable here`,
+    );
+  });
+
+  it(
+    "both lanes return the same number of ancestors",
+    {
+      todo:
+        "AP-D4 — reader loadParentChain defaults to maxDepth=5, " +
+        "Mastodon /context walks up to 40",
+    },
+    async () => {
+      const reader = await readerAncestors();
+      const mastodon = await mastodonAncestors();
+
+      assert.equal(
+        reader.length,
+        mastodon.length,
+        `reader built ${reader.length} ancestors, Mastodon built ${mastodon.length}`,
+      );
+    },
+  );
+
+  it(
+    "both lanes agree on the root of the thread",
+    { todo: "AP-D4 — the reader truncates at 5, so it never reaches the root" },
+    async () => {
+      const reader = await readerAncestors();
+      const mastodon = await mastodonAncestors();
+
+      assert.equal(reader[0]?.uid, mastodon[0]?.uri);
     },
   );
 });
