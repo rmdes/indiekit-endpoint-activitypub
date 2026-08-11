@@ -42,7 +42,7 @@ after(async () => {
 
 beforeEach(async () => {
   await mongo.reset();
-  await seed(mongo.collections);
+  await seed(mongo.collections, { migrate: false });
 });
 
 describe("Stage 2 migrations — order is load-bearing", () => {

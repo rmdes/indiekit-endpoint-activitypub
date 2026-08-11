@@ -27,13 +27,13 @@ import request from "supertest";
 import { withMongo } from "./helpers/mongo.js";
 import { seed } from "./helpers/fixtures.js";
 import { makeMastodonApp, BEARER } from "./helpers/mastodon-app.js";
+import { makeReaderApp } from "./helpers/reader-app.js";
 
 // Reader lane — the storage layer IS the reader's query path.
-import { getTimelineItems } from "../lib/storage/timeline.js";
 import {
   getNotifications,
-  markNotificationsRead,
-} from "../lib/storage/notifications.js";
+  markRead as markNotificationsRead,
+} from "../lib/core/notifications.js";
 import { getMutedUrls, getAllMuted } from "../lib/storage/moderation.js";
 import { loadParentChain } from "../lib/controllers/post-detail.js";
 import {
@@ -44,11 +44,13 @@ import {
 
 let mongo;
 let app;
+let readerApp;
 
 before(async () => {
   mongo = await withMongo();
   await seed(mongo.collections);
   app = makeMastodonApp(mongo.collections);
+  readerApp = makeReaderApp(mongo.collectionMap);
 });
 
 after(async () => {
@@ -66,30 +68,41 @@ async function mastodonHome(query = "") {
 }
 
 /**
- * Reader home timeline — the reader's FULL path, not just the storage query.
+ * Reader home timeline, driven through the ACTUAL adapter over HTTP.
  *
- * `lib/controllers/api-timeline.js` composes getTimelineItems() with the shared
- * moderation filters from item-processing.js. Comparing the bare storage query
- * against the Mastodon route would compare a layer to a lane and manufacture a
- * difference that isn't a defect: the Mastodon route applies moderation too.
+ * Originally this called lib/storage/timeline.js directly. That was correct
+ * before Stage 2 — the storage layer was the reader's query path. Now that
+ * api-timeline.js is an adapter over lib/core/timeline.js, calling storage
+ * would compare a module the reader no longer uses, and the parity todos would
+ * never flip no matter what the refactor achieved.
+ *
+ * Returns the parsed cards, so counts and identities are comparable with the
+ * Mastodon lane's status array.
  */
-async function readerHome(options = {}) {
-  const { items } = await getTimelineItems(mongo.collections, {
-    limit: 40,
-    ...options,
-  });
-
-  // The controller reads moderation through a short-lived cache; drop it so a
-  // mute written earlier in the suite is visible to the next call.
+async function readerHome(query = "") {
+  // The adapter reads moderation through a 30s cache; drop it so a mute
+  // written earlier in the suite is visible to the next call.
   invalidateModerationCache();
 
-  const moderation = await loadModerationData({
-    ap_muted: mongo.collections.ap_muted,
-    ap_blocked: mongo.collections.ap_blocked,
-    ap_profile: mongo.collections.ap_profile,
-  });
+  const res = await request(readerApp).get(
+    `/admin/reader/api/timeline?tab=all${query}`,
+  );
 
-  return applyModerationFilters(items, moderation);
+  assert.equal(res.status, 200, `reader timeline returned ${res.status}`);
+
+  // Each card is <article class="ap-card…" data-uid="…">
+  const uids = [...res.body.html.matchAll(/data-uid="([^"]+)"/g)].map((m) => m[1]);
+
+  return uids.map((uid) => ({ uid }));
+}
+
+/** Visibility per uid, read back from storage — the cards do not carry it. */
+async function visibilityOf(uids) {
+  const docs = await mongo.collections.ap_timeline
+    .find({ uid: { $in: uids } }, { projection: { uid: 1, visibility: 1 } })
+    .toArray();
+
+  return [...new Set(docs.map((d) => d.visibility))].sort();
 }
 
 // ───────────────────────────────────────────────────────────────────────────
@@ -98,19 +111,17 @@ async function readerHome(options = {}) {
 
 describe("parity: timeline visibility (AP-D5, DD-4 ratified: include private)", () => {
   it(
+    // AP-D5 CLOSED (Stage 2): both lanes read core/timeline.js, whose home
+    // predicate is `visibility: {$nin: ["direct"]}` per DD-4.
     "both lanes surface the same visibility set on the home timeline",
-    { todo: "AP-D5 — reader excludes `private`, Mastodon includes it" },
     async () => {
       const mastodon = await mastodonHome();
       const reader = await readerHome();
 
-      const visibilities = (rows, key) =>
-        [...new Set(rows.map((r) => r[key]))].sort();
+      const mastodonVis = [...new Set(mastodon.map((s) => s.visibility))].sort();
+      const readerVis = await visibilityOf(reader.map((i) => i.uid));
 
-      assert.deepEqual(
-        visibilities(reader, "visibility"),
-        visibilities(mastodon, "visibility"),
-      );
+      assert.deepEqual(readerVis, mastodonVis);
     },
   );
 
@@ -119,7 +130,9 @@ describe("parity: timeline visibility (AP-D5, DD-4 ratified: include private)", 
     const reader = await readerHome();
 
     assert.ok(!mastodon.some((s) => s.visibility === "direct"));
-    assert.ok(!reader.some((i) => i.visibility === "direct"));
+
+    const readerVis = await visibilityOf(reader.map((i) => i.uid));
+    assert.ok(!readerVis.includes("direct"));
   });
 
   it("neither lane surfaces context-only ancestors", async () => {
@@ -127,7 +140,7 @@ describe("parity: timeline visibility (AP-D5, DD-4 ratified: include private)", 
     const reader = await readerHome();
 
     assert.ok(!mastodon.some((s) => s.uri?.endsWith("/notes/16")));
-    assert.ok(!reader.some((i) => i.isContext === true));
+    assert.ok(!reader.some((i) => i.uid.endsWith("/notes/16")));
   });
 });
 
@@ -137,12 +150,9 @@ describe("parity: timeline visibility (AP-D5, DD-4 ratified: include private)", 
 
 describe("parity: timeline ordering (AP-D7)", () => {
   it(
+    // AP-D7 CLOSED (Stage 2): one sort key, `receivedAt` desc with `_id` as
+    // tiebreak, owned by core/cursor.js#buildPage per DD-1.
     "both lanes place the late-arriving post in the same position",
-    {
-      todo:
-        "AP-D7 — Mastodon sorts by _id (arrival), reader by published. " +
-        "Closes when DD-1's receivedAt lands in Stage 2.",
-    },
     async () => {
       const mastodon = await mastodonHome();
       const reader = await readerHome();
@@ -162,12 +172,20 @@ describe("parity: timeline ordering (AP-D7)", () => {
     },
   );
 
-  it("each lane is at least internally consistent with its own sort key", async () => {
+  it("the reader now orders by arrival, not publication (DD-1)", async () => {
     const reader = await readerHome();
-    const published = reader.map((i) => i.published);
-    const sorted = [...published].sort().reverse();
+    const uids = reader.map((i) => i.uid);
 
-    assert.deepEqual(published, sorted, "reader must be published-descending");
+    const docs = await mongo.collections.ap_timeline
+      .find({ uid: { $in: uids } })
+      .sort({ receivedAt: -1, _id: -1 })
+      .toArray();
+
+    assert.deepEqual(
+      uids,
+      docs.map((d) => d.uid),
+      "the reader must return arrival order after the Stage 2 port",
+    );
   });
 });
 
@@ -177,17 +195,26 @@ describe("parity: timeline ordering (AP-D7)", () => {
 
 describe("parity: timeline read-tracking (AP-D3)", () => {
   it(
+    // AP-D3 CLOSED (Stage 2): serving the timeline calls core markRead, so the
+    // phone and the desktop share one unread state.
     "reading the timeline in the Mastodon lane marks items read for the reader",
-    { todo: "AP-D3 — the Mastodon lane never touches the `read` field" },
     async () => {
+      // Earlier tests in this file serve the Mastodon timeline, which now marks
+      // items read — that is the behaviour under test. Reset first so this
+      // measures its own effect, not a leftover from suite ordering.
+      await mongo.collections.ap_timeline.updateMany(
+        {},
+        { $set: { readAt: null, read: false } },
+      );
+
       const before = await mongo.collections.ap_timeline.countDocuments({
-        read: { $ne: true },
+        readAt: null,
       });
 
       await mastodonHome();
 
       const after = await mongo.collections.ap_timeline.countDocuments({
-        read: { $ne: true },
+        readAt: null,
       });
 
       assert.ok(
@@ -204,8 +231,9 @@ describe("parity: timeline read-tracking (AP-D3)", () => {
 
 describe("parity: notification read-state (AP-D2)", () => {
   it(
+    // AP-D2 CLOSED (Stage 2): both lanes read and write the shared `readAt`
+    // via core/notifications.js, per DD-3.
     "dismissing in the Mastodon lane marks the notification read for the reader",
-    { todo: "AP-D2 — Mastodon writes `dismissed`, the reader reads `read`" },
     async () => {
       const target = await mongo.collections.ap_notifications.findOne({
         uid: "https://remote.example/follows/1",
@@ -229,12 +257,32 @@ describe("parity: notification read-state (AP-D2)", () => {
   );
 
   it(
+    // AP-D2 CLOSED (Stage 2): the Mastodon lane filters on `readAt`, which the
+    // reader also writes.
     "marking read in the reader hides the notification from the Mastodon lane",
-    { todo: "AP-D2 — the Mastodon lane filters on `dismissed`, not `read`" },
     async () => {
+      // Own the state: earlier tests in this file mark notifications read, and
+      // an empty list would let this pass vacuously.
+      await mongo.collections.ap_notifications.updateMany(
+        {},
+        { $set: { readAt: null, read: false, dismissed: false } },
+      );
+
       const uid = "https://remote.example/likes/1";
       const target = await mongo.collections.ap_notifications.findOne({ uid });
-      await markNotificationsRead(mongo.collections, [uid]);
+
+      const beforeRes = await request(app)
+        .get("/api/v1/notifications")
+        .set("Authorization", BEARER)
+        .expect(200);
+
+      assert.ok(
+        beforeRes.body.some((n) => n.id === target._id.toString()),
+        "guard: the notification must be visible BEFORE it is marked read",
+      );
+
+      // The reader marks it read...
+      await markNotificationsRead(mongo.collections, { uids: [uid] });
 
       const res = await request(app)
         .get("/api/v1/notifications")
@@ -245,12 +293,12 @@ describe("parity: notification read-state (AP-D2)", () => {
       // substring would be vacuous: a `like` notification's status is the TARGET
       // post, whose uri never contains "likes/1".
       assert.ok(
-        res.body.length > 0,
-        "guard: the Mastodon lane must return notifications at all",
-      );
-      assert.ok(
         !res.body.some((n) => n.id === target._id.toString()),
         "a notification read in the reader must not still show in Phanpy",
+      );
+      assert.ok(
+        res.body.length > 0,
+        "guard: only the ONE marked notification should disappear",
       );
     },
   );

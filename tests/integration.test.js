@@ -115,14 +115,16 @@ describe("integration: reader timeline endpoint", () => {
     const total = cardCount(all.body.html);
     assert.ok(total > 2, "need enough items for the cursor to bite");
 
-    // Cursor from a known mid-list item: everything strictly older than it.
+    // DD-2: `before` is now an OPAQUE cursor, not a published date. The token
+    // happens to be the ObjectId hex — that is core's business, not the
+    // adapter's, and the adapter passes it back unchanged.
     const pivot = await mongo.collections.ap_timeline.findOne({
       uid: "https://remote.example/notes/8",
     });
 
     const older = await request(reader)
       .get(
-        `/admin/reader/api/timeline?before=${encodeURIComponent(pivot.published)}`,
+        `/admin/reader/api/timeline?before=${encodeURIComponent(pivot._id.toString())}`,
       )
       .expect(200);
 

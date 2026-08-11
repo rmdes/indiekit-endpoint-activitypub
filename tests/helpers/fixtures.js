@@ -261,9 +261,16 @@ export const OAUTH_TOKEN = {
  * Seed every collection. Insertion order within ap_timeline is preserved,
  * which AP-D7 depends on.
  *
+ * By default the Stage 2 migrations run afterwards, so fixtures reflect a
+ * MIGRATED database — which is what any real deployment looks like once
+ * v4 ships. Pass `{ migrate: false }` to get the pre-migration shape, which
+ * the migration tests themselves need.
+ *
  * @param {Record<string, import("mongodb").Collection>} collections
+ * @param {object} [options]
+ * @param {boolean} [options.migrate=true]
  */
-export async function seed(collections) {
+export async function seed(collections, { migrate = true } = {}) {
   // Sequential, not Promise.all — ObjectId order must follow array order.
   for (const doc of TIMELINE) {
     await collections.ap_timeline.insertOne({ ...doc });
@@ -284,6 +291,17 @@ export async function seed(collections) {
   );
   await collections.ap_profile.insertOne({ ...PROFILE });
   await collections.ap_oauth_tokens.insertOne({ ...OAUTH_TOKEN });
+
+  if (migrate) {
+    // Dynamic import keeps this helper usable by the migration tests, which
+    // need to seed the pre-migration shape and run the steps themselves.
+    const { ensureReceivedAtIndexes, backfillReceivedAt, backfillReadAt } =
+      await import("../../lib/migrations/single-lane-core.js");
+
+    await ensureReceivedAtIndexes(collections);
+    await backfillReceivedAt(collections);
+    await backfillReadAt(collections);
+  }
 }
 
 export const AUTHORS = { AUTHOR_A, AUTHOR_B, LOCAL_AUTHOR };

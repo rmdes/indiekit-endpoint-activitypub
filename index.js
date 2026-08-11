@@ -360,6 +360,38 @@ export default class ActivityPubEndpoint {
     // Register syndicator (appears in post editing UI)
     Indiekit.addSyndicator(this.syndicator);
 
+    // Stage 2 single-lane migrations. Idempotent, and ORDER MATTERS:
+    // index -> backfill -> verify. Verifying before the backfill would
+    // explain() an index over zero rows and prove nothing; switching the sort
+    // before verifying risks a collection scan on the production timeline.
+    //
+    // Runs immediately rather than behind the startup gate: lib/core/timeline.js
+    // sorts on `receivedAt`, so serving a request before the backfill lands
+    // would return an arbitrary order. This is a bounded, indexed pass over
+    // ap_timeline, not open-ended background work.
+    import("./lib/migrations/single-lane-core.js")
+      .then(({ runSingleLaneMigrations }) =>
+        runSingleLaneMigrations(this._collections),
+      )
+      .then(({ received, read, index }) => {
+        if (received.updated > 0 || read.timeline > 0 || read.notifications > 0) {
+          console.log(
+            `[ActivityPub] Single-lane migration: receivedAt +${received.updated} ` +
+              `(${received.contextInherited} context inherited), ` +
+              `readAt +${read.timeline} timeline / +${read.notifications} notifications`,
+          );
+        }
+        console.info(
+          `[ActivityPub] Timeline feed plan: ${index.stage} on ${index.indexName}`,
+        );
+      })
+      .catch((error) => {
+        console.error(
+          "[ActivityPub] Single-lane migration FAILED:",
+          error.message,
+        );
+      });
+
     // Run one-time migrations (idempotent — safe to run on every startup)
     console.info("[ActivityPub] Init: starting post-refollow setup");
     runSeparateMentionsMigration(this._collections).then(({ skipped, updated }) => {
