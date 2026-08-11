@@ -233,6 +233,55 @@ export const PENDING_FOLLOWS = [
   },
 ];
 
+/**
+ * Direct messages. conversationId is the other party's actor URL, so these two
+ * form ONE conversation with AUTHOR_A plus one with AUTHOR_B.
+ */
+export const MESSAGES = [
+  {
+    uid: "https://remote.example/dm/1",
+    actorUrl: AUTHOR_A.url,
+    actorName: AUTHOR_A.name,
+    actorPhoto: AUTHOR_A.photo,
+    actorHandle: AUTHOR_A.handle,
+    content: { text: "hello there", html: "<p>hello there</p>" },
+    inReplyTo: null,
+    conversationId: AUTHOR_A.url,
+    direction: "inbound",
+    published: "2026-08-01T09:00:00.000Z",
+    createdAt: "2026-08-01T09:00:00.000Z",
+    read: false,
+  },
+  {
+    uid: "https://local.example/dm/2",
+    actorUrl: AUTHOR_A.url,
+    actorName: AUTHOR_A.name,
+    actorPhoto: AUTHOR_A.photo,
+    actorHandle: AUTHOR_A.handle,
+    content: { text: "hi back", html: "<p>hi back</p>" },
+    inReplyTo: "https://remote.example/dm/1",
+    conversationId: AUTHOR_A.url,
+    direction: "outbound",
+    published: "2026-08-01T09:05:00.000Z",
+    createdAt: "2026-08-01T09:05:00.000Z",
+    read: true,
+  },
+  {
+    uid: "https://remote.example/dm/3",
+    actorUrl: AUTHOR_B.url,
+    actorName: AUTHOR_B.name,
+    actorPhoto: AUTHOR_B.photo,
+    actorHandle: AUTHOR_B.handle,
+    content: { text: "separate thread", html: "<p>separate thread</p>" },
+    inReplyTo: null,
+    conversationId: AUTHOR_B.url,
+    direction: "inbound",
+    published: "2026-08-02T10:00:00.000Z",
+    createdAt: "2026-08-02T10:00:00.000Z",
+    read: false,
+  },
+];
+
 export const PROFILE = {
   name: "Rick",
   summary: "Test profile",
@@ -289,6 +338,7 @@ export async function seed(collections, { migrate = true } = {}) {
   await collections.ap_pending_follows.insertMany(
     PENDING_FOLLOWS.map((d) => ({ ...d })),
   );
+  await collections.ap_messages.insertMany(MESSAGES.map((d) => ({ ...d })));
   await collections.ap_profile.insertOne({ ...PROFILE });
   await collections.ap_oauth_tokens.insertOne({ ...OAUTH_TOKEN });
 

@@ -194,14 +194,13 @@ describe("integration: both lanes mounted over the same database", () => {
 
   it(
     "both lanes return the same number of items for an unfiltered timeline",
-    {
-      todo:
-        "AP-D5 — the reader excludes `private`, the Mastodon lane includes it, " +
-        "so the counts differ by exactly the followers-only items",
-    },
     async () => {
+      // `tab=all` is required: the reader defaults to the `notes` tab, which
+      // filters to type=note AND excludes replies. Comparing that against an
+      // unfiltered Mastodon home compares two different queries — the counts
+      // would differ (8 vs 10) for reasons that are not a parity defect.
       const readerRes = await request(reader)
-        .get("/admin/reader/api/timeline")
+        .get("/admin/reader/api/timeline?tab=all")
         .expect(200);
 
       const mastodonRes = await request(mastodon)

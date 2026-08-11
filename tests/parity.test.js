@@ -315,12 +315,9 @@ describe("parity: account mutes (AP-D9)", () => {
   });
 
   it(
+    // AP-D9 CLOSED (Stage 4): core/moderation.js knows ap_muted holds BOTH
+    // account mutes ({url}) and keyword mutes ({keyword}).
     "GET /api/v1/mutes returns the same account mutes the reader shows",
-    {
-      todo:
-        "AP-D9 — stubs.js:139 returns [] unconditionally, on the false premise " +
-        "that ap_muted holds only keyword mutes",
-    },
     async () => {
       const readerMutes = await getMutedUrls(mongo.collections);
 
@@ -338,8 +335,9 @@ describe("parity: account mutes (AP-D9)", () => {
   );
 
   it(
+    // AP-D9 CLOSED (Stage 4) — the intra-surface half: the API can now read
+    // back what it writes.
     "a mute written by the Mastodon API is readable back from the same API",
-    { todo: "AP-D9 — intra-surface: POST /accounts/:id/mute writes, GET /mutes cannot read" },
     async () => {
       const before = await request(app)
         .get("/api/v1/mutes")
@@ -373,8 +371,9 @@ describe("parity: follow requests (AP-D8)", () => {
   });
 
   it(
+    // AP-D8 CLOSED (Stage 4): POST /api/v1/follow_requests/:id/{authorize,reject}
+    // added, both over core/follow-requests.js.
     "a listed follow request can be authorized through the Mastodon API",
-    { todo: "AP-D8 — no authorize/reject endpoint exists; the control is dead" },
     async () => {
       const res = await request(app)
         .get("/api/v1/follow_requests")
@@ -500,8 +499,8 @@ describe("parity: remaining stubbed reads (AP-D6')", () => {
   });
 
   it(
+    // AP-D6' CLOSED (Stage 4): both lanes read core/messages.js.
     "conversations are readable",
-    { todo: "AP-D6' — GET /api/v1/conversations still returns []" },
     async () => {
       const res = await request(app)
         .get("/api/v1/conversations")
@@ -509,7 +508,9 @@ describe("parity: remaining stubbed reads (AP-D6')", () => {
         .expect(200);
 
       assert.ok(Array.isArray(res.body));
-      assert.ok(res.body.length > 0, "DMs exist but conversations returns []");
+      assert.equal(res.body.length, 2, "fixture seeds two conversations");
+      assert.ok(res.body.some((c) => c.unread), "unread state must be exposed");
+      assert.ok(res.body.every((c) => c.last_status?.content));
     },
   );
 });
