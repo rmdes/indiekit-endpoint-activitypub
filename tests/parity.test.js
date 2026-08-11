@@ -35,7 +35,7 @@ import {
   markRead as markNotificationsRead,
 } from "../lib/core/notifications.js";
 import { getMutedUrls, getAllMuted } from "../lib/storage/moderation.js";
-import { loadParentChain } from "../lib/controllers/post-detail.js";
+import { getAncestors } from "../lib/core/threads.js";
 import {
   loadModerationData,
   applyModerationFilters,
@@ -413,12 +413,9 @@ describe("parity: thread building (AP-D4)", () => {
   /** Ancestors as the reader builds them. */
   async function readerAncestors() {
     const tip = await mongo.collections.ap_timeline.findOne({ uid: DEEP_TIP });
-    return loadParentChain(
-      null, // ctx — unused, every ancestor in the fixture is local
-      null, // documentLoader
-      mongo.collections.ap_timeline,
-      tip.inReplyTo,
-    );
+    // The reader now calls core/threads#getAncestors. No ctx: every ancestor in
+    // the fixture is local, so the remote-fetch path is not exercised here.
+    return getAncestors(mongo.collections, tip.inReplyTo);
   }
 
   /** Ancestors as the Mastodon lane builds them. */
@@ -442,12 +439,10 @@ describe("parity: thread building (AP-D4)", () => {
   });
 
   it(
+    // AP-D4 CLOSED (Stage 3): one implementation, one depth (MAX_ANCESTORS).
+    // The reader keeps its remote-fetch capability; what it loses is the
+    // shallower default that made it show FEWER ancestors than the phone.
     "both lanes return the same number of ancestors",
-    {
-      todo:
-        "AP-D4 — reader loadParentChain defaults to maxDepth=5, " +
-        "Mastodon /context walks up to 40",
-    },
     async () => {
       const reader = await readerAncestors();
       const mastodon = await mastodonAncestors();
@@ -461,8 +456,8 @@ describe("parity: thread building (AP-D4)", () => {
   );
 
   it(
+    // AP-D4 CLOSED (Stage 3).
     "both lanes agree on the root of the thread",
-    { todo: "AP-D4 — the reader truncates at 5, so it never reaches the root" },
     async () => {
       const reader = await readerAncestors();
       const mastodon = await mastodonAncestors();

@@ -22,7 +22,7 @@ import {
   unboostPost,
   likePost,
   unlikePost,
-} from "../lib/mastodon/helpers/interactions.js";
+} from "../lib/core/interactions.js";
 
 const TARGET = "https://remote.example/users/alice/statuses/1";
 const AUTHOR = "https://remote.example/users/alice";
