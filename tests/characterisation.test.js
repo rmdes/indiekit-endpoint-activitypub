@@ -27,8 +27,12 @@ import { withMongo } from "./helpers/mongo.js";
 import { seed } from "./helpers/fixtures.js";
 import { makeMastodonApp, BEARER } from "./helpers/mastodon-app.js";
 
-import { getTimelineItems } from "../lib/storage/timeline.js";
-import { getNotifications } from "../lib/storage/notifications.js";
+// Post-Stage-2 these characterise lib/core/*, which BOTH lanes now call.
+// The reader-specific storage functions they used to describe were deleted in
+// Stage 5 — their behaviour is now core's, and several assertions below changed
+// deliberately as a result. Each such change is marked.
+import { getTimeline as getTimelineItems } from "../lib/core/timeline.js";
+import { getNotifications } from "../lib/core/notifications.js";
 
 let mongo;
 let app;
@@ -47,21 +51,25 @@ after(async () => {
 // Reader lane — current behaviour
 // ───────────────────────────────────────────────────────────────────────────
 
-describe("characterisation: reader timeline (lib/storage/timeline.js)", () => {
-  it("excludes private and direct, and context items", async () => {
+describe("characterisation: timeline core (lib/core/timeline.js)", () => {
+  it("CHANGED by DD-4: includes followers-only, still excludes direct/context", async () => {
     const { items } = await getTimelineItems(mongo.collections, { limit: 50 });
     const seen = new Set(items.map((i) => i.visibility));
 
-    assert.ok(!seen.has("private"), "reader currently hides followers-only");
+    // Was: `assert.ok(!seen.has("private"))` — the reader hid followers-only
+    // posts the phone showed. DD-4 ratified showing them on both surfaces.
+    assert.ok(seen.has("private"), "followers-only posts are now visible");
     assert.ok(!seen.has("direct"));
     assert.ok(!items.some((i) => i.isContext));
   });
 
-  it("sorts newest-first by `published`", async () => {
+  it("CHANGED by DD-1: sorts newest-first by `receivedAt`, not `published`", async () => {
     const { items } = await getTimelineItems(mongo.collections, { limit: 50 });
-    const dates = items.map((i) => i.published);
+    const arrivals = items.map((i) => i.receivedAt);
 
-    assert.deepEqual(dates, [...dates].sort().reverse());
+    // Was: sorted on `published`. A post federating in three days late used to
+    // land where it was published — buried, effectively invisible.
+    assert.deepEqual(arrivals, [...arrivals].sort().reverse());
   });
 
   it("normalises `published` to an ISO string, never a Date", async () => {
@@ -80,6 +88,7 @@ describe("characterisation: reader timeline (lib/storage/timeline.js)", () => {
   it("excludeReplies matches null, missing AND empty-string inReplyTo", async () => {
     const { items } = await getTimelineItems(mongo.collections, {
       limit: 50,
+      feed: "home",
       excludeReplies: true,
     });
 
@@ -119,10 +128,15 @@ describe("characterisation: reader timeline (lib/storage/timeline.js)", () => {
       getTimelineItems(mongo.collections, { authorUrl: { $ne: null } }),
     );
   });
+
+  it("CHANGED by F-2: limit is a parameter, not a hardcoded page size", async () => {
+    const five = await getTimelineItems(mongo.collections, { limit: 5 });
+    assert.equal(five.items.length, 5);
+  });
 });
 
-describe("characterisation: reader notifications", () => {
-  it("filters unread on the `read` field", async () => {
+describe("characterisation: notification core (lib/core/notifications.js)", () => {
+  it("CHANGED by DD-3: filters unread on the shared `readAt`", async () => {
     const all = await getNotifications(mongo.collections, { limit: 50 });
     const unread = await getNotifications(mongo.collections, {
       limit: 50,
@@ -130,18 +144,23 @@ describe("characterisation: reader notifications", () => {
     });
 
     assert.equal(all.items.length, 4);
-    assert.equal(unread.items.length, 3, "one fixture notification has read:true");
+    // Was 3, counting only the reader's `read` field. Now 2: the fixture's
+    // Mastodon-dismissed notification ALSO counts as read, which is AP-D2
+    // closed. One field, both surfaces.
+    assert.equal(unread.items.length, 2);
   });
 
-  it("ignores `dismissed` entirely", async () => {
+  it("CHANGED by DD-3: a Mastodon-dismissed notification is read here too", async () => {
     const unread = await getNotifications(mongo.collections, {
       limit: 50,
       unreadOnly: true,
     });
 
+    // Was: asserted the opposite — that `dismissed` was ignored, which is
+    // exactly the defect.
     assert.ok(
-      unread.items.some((n) => n.dismissed === true),
-      "a Mastodon-dismissed notification still counts as unread here (AP-D2)",
+      !unread.items.some((n) => n.dismissed === true),
+      "dismissing on the phone must mark it read on the desktop",
     );
   });
 });
