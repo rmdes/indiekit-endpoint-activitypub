@@ -38,8 +38,6 @@ const ADAPTER_DIRS = ["lib/controllers", "lib/mastodon/routes", "lib/mastodon/he
 const NOT_YET_PORTED = new Set([
   "lib/mastodon/helpers/pagination.js",
   "lib/mastodon/routes/accounts.js",
-  "lib/mastodon/routes/filters.js",
-  "lib/mastodon/routes/instance.js",
   "lib/mastodon/routes/media.js",
   "lib/mastodon/routes/oauth.js",
   "lib/mastodon/routes/statuses.js",
