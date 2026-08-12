@@ -29,17 +29,16 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const ADAPTER_DIRS = ["lib/controllers", "lib/mastodon/routes", "lib/mastodon/helpers"];
 
 /**
- * Modules not yet ported to lib/core/*. SHRINK ONLY.
+ * Modules not yet ported to lib/core/*.
  *
- * Each of these still builds its own queries. None has a known defect — which
- * is exactly why they were left until last — but each is a place where the two
- * lanes could diverge again.
+ * EMPTY, and it must stay that way. Every adapter goes through lib/core/*.
+ *
+ * This list existed as tracked debt during the Stage 2-4 port and went from 38
+ * entries to zero. Adding an entry back is how this rule dies quietly: it turns
+ * a build failure into a TODO nobody reads. If a new adapter needs data, give
+ * it a core function — that is the entire point of the exercise.
  */
-const NOT_YET_PORTED = new Set([
-  "lib/mastodon/helpers/pagination.js",
-  "lib/mastodon/routes/accounts.js",
-  "lib/mastodon/routes/oauth.js",
-]);
+const NOT_YET_PORTED = new Set([]);
 
 /**
  * Direct collection access — the thing adapters must not do.
@@ -85,11 +84,14 @@ for (const dir of ADAPTER_DIRS) {
   for await (const file of walk(dir)) {
     const source = await readFile(join(ROOT, file), "utf8");
 
-    // Strip comments first, then match against the whole file — a chain split
-    // across lines is still a query.
+    // Blank out comments IN PLACE — replacing them with same-length filler
+    // keeps every byte offset, so reported line numbers match the real file.
+    // Deleting them instead shifts every subsequent line, which made an earlier
+    // version of this script report positions that pointed at unrelated code.
+    const blank = (match) => match.replace(/[^\n]/g, " ");
     const code = source
-      .replace(/\/\*[\s\S]*?\*\//g, "")
-      .replace(/^\s*\/\/.*$/gm, "");
+      .replace(/\/\*[\s\S]*?\*\//g, blank)
+      .replace(/^\s*\/\/.*$/gm, blank);
 
     const hits = [];
     for (const { re, what } of MONGO_PATTERNS) {
