@@ -38,17 +38,36 @@ const ADAPTER_DIRS = ["lib/controllers", "lib/mastodon/routes", "lib/mastodon/he
 const NOT_YET_PORTED = new Set([
   "lib/mastodon/helpers/pagination.js",
   "lib/mastodon/routes/accounts.js",
-  "lib/mastodon/routes/media.js",
   "lib/mastodon/routes/oauth.js",
-  "lib/mastodon/routes/statuses.js",
-  "lib/mastodon/routes/stubs.js",
 ]);
 
-/** Direct collection access — the thing adapters must not do. */
+/**
+ * Direct collection access — the thing adapters must not do.
+ *
+ * `\s*` between the collection and the method is load-bearing. An earlier
+ * line-by-line version of this script missed
+ *
+ *   await collections.ap_idempotency
+ *     .insertOne({ ... })
+ *
+ * because the method sat on the next line. Matching against the whole file
+ * with a whitespace-tolerant pattern closes that hole.
+ */
+const METHODS =
+  "find|findOne|aggregate|countDocuments|insertOne|insertMany|updateOne|updateMany|deleteOne|deleteMany|bulkWrite|replaceOne|findOneAndUpdate|distinct";
+
 const MONGO_PATTERNS = [
-  { re: /from\s+["']mongodb["']/, what: 'imports from "mongodb"' },
-  { re: /collections\.\w+\.(find|findOne|aggregate|countDocuments|insertOne|insertMany|updateOne|updateMany|deleteOne|deleteMany|bulkWrite)\(/, what: "queries a collection directly" },
-  { re: /collections\.get\(["'][^"']+["']\)\.(find|findOne|aggregate|countDocuments|updateOne|updateMany|deleteOne|bulkWrite)\(/, what: "queries a collection directly" },
+  // `new ObjectId(...)` without importing mongodb is a ReferenceError that a
+  // surrounding try/catch will happily swallow — statuses.js#findTimelineItemById
+  // did exactly that and silently 404'd every /context request. Flag the
+  // CONSTRUCTOR, not just the import.
+  { re: /new\s+ObjectId\s*\(/g, what: "constructs an ObjectId" },
+  // A helper that takes the collection as a PARAMETER evades `collections.x.find(`.
+  // Catch the bare method call on any identifier that looks like a collection.
+  { re: /\b(?:collection|col|coll)\s*\.\s*(?:find|findOne|aggregate|countDocuments|insertOne|insertMany|updateOne|updateMany|deleteOne|deleteMany|bulkWrite|distinct)\s*\(/g, what: "queries a collection passed as a parameter" },
+  { re: new RegExp(`from\\s+["']mongodb["']`, "g"), what: 'imports from "mongodb"' },
+  { re: new RegExp(`collections\\.\\w+\\s*\\.\\s*(?:${METHODS})\\s*\\(`, "g"), what: "queries a collection directly" },
+  { re: new RegExp(`collections\\.get\\(["'][^"']+["']\\)\\s*\\.\\s*(?:${METHODS})\\s*\\(`, "g"), what: "queries a collection directly" },
 ];
 
 async function* walk(dir) {
@@ -65,15 +84,22 @@ const cleared = [];
 for (const dir of ADAPTER_DIRS) {
   for await (const file of walk(dir)) {
     const source = await readFile(join(ROOT, file), "utf8");
-    const lines = source.split("\n");
+
+    // Strip comments first, then match against the whole file — a chain split
+    // across lines is still a query.
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/^\s*\/\/.*$/gm, "");
 
     const hits = [];
-    lines.forEach((line, i) => {
-      if (line.trim().startsWith("//") || line.trim().startsWith("*")) return;
-      for (const { re, what } of MONGO_PATTERNS) {
-        if (re.test(line)) hits.push({ line: i + 1, what, text: line.trim() });
+    for (const { re, what } of MONGO_PATTERNS) {
+      re.lastIndex = 0;
+      let match;
+      while ((match = re.exec(code)) !== null) {
+        const line = code.slice(0, match.index).split("\n").length;
+        hits.push({ line, what, text: match[0].replace(/\s+/g, " ").trim() });
       }
-    });
+    }
 
     if (hits.length > 0 && !NOT_YET_PORTED.has(file)) {
       violations.push({ file, hits });
