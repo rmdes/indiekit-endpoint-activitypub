@@ -36,9 +36,6 @@ const ADAPTER_DIRS = ["lib/controllers", "lib/mastodon/routes", "lib/mastodon/he
  * lanes could diverge again.
  */
 const NOT_YET_PORTED = new Set([
-  "lib/controllers/moderation.js",
-  "lib/controllers/tabs.js",
-  "lib/mastodon/helpers/enrich-accounts.js",
   "lib/mastodon/helpers/pagination.js",
   "lib/mastodon/routes/accounts.js",
   "lib/mastodon/routes/filters.js",
