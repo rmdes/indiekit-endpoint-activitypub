@@ -48,7 +48,7 @@
     "@js-temporal/polyfill": "^0.5.0",
     "@rmdes/indiekit-startup-gate": "^1.0.0",
     "express": "^5.0.0",
-    "express-rate-limit": "^7.5.1",
+    "express-rate-limit": "^8.0.0",
     "ioredis": "^5.9.3",
     "sanitize-html": "^2.13.1",
     "unfurl.js": "^6.4.0"
