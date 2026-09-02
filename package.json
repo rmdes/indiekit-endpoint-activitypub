@@ -42,7 +42,7 @@
   },
   "dependencies": {
     "@fedify/debugger": "2.3.1",
-    "@fedify/fedify": "2.3.1",
+    "@fedify/fedify": "2.3.6",
     "@fedify/redis": "2.3.1",
     "@fedify/vocab": "2.3.4",
     "@js-temporal/polyfill": "^0.5.0",
