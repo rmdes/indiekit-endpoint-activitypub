@@ -51,6 +51,7 @@
     "express": "^5.0.0",
     "express-rate-limit": "^8.0.0",
     "ioredis": "^5.9.3",
+    "mongodb": "^7.5.0",
     "sanitize-html": "^2.13.1",
     "unfurl.js": "^6.4.0"
   },
