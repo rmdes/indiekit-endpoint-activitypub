@@ -29,31 +29,44 @@ const ROOT = fileURLToPath(new URL("..", import.meta.url));
 const ADAPTER_DIRS = ["lib/controllers", "lib/mastodon/routes", "lib/mastodon/helpers"];
 
 /**
- * Modules not yet ported to lib/core/*. SHRINK ONLY.
+ * Modules not yet ported to lib/core/*.
  *
- * Each of these still builds its own queries. None has a known defect — which
- * is exactly why they were left until last — but each is a place where the two
- * lanes could diverge again.
+ * EMPTY, and it must stay that way. Every adapter goes through lib/core/*.
+ *
+ * This list existed as tracked debt during the Stage 2-4 port and went from 38
+ * entries to zero. Adding an entry back is how this rule dies quietly: it turns
+ * a build failure into a TODO nobody reads. If a new adapter needs data, give
+ * it a core function — that is the entire point of the exercise.
  */
-const NOT_YET_PORTED = new Set([
-  "lib/controllers/moderation.js",
-  "lib/controllers/tabs.js",
-  "lib/mastodon/helpers/enrich-accounts.js",
-  "lib/mastodon/helpers/pagination.js",
-  "lib/mastodon/routes/accounts.js",
-  "lib/mastodon/routes/filters.js",
-  "lib/mastodon/routes/instance.js",
-  "lib/mastodon/routes/media.js",
-  "lib/mastodon/routes/oauth.js",
-  "lib/mastodon/routes/statuses.js",
-  "lib/mastodon/routes/stubs.js",
-]);
+const NOT_YET_PORTED = new Set([]);
 
-/** Direct collection access — the thing adapters must not do. */
+/**
+ * Direct collection access — the thing adapters must not do.
+ *
+ * `\s*` between the collection and the method is load-bearing. An earlier
+ * line-by-line version of this script missed
+ *
+ *   await collections.ap_idempotency
+ *     .insertOne({ ... })
+ *
+ * because the method sat on the next line. Matching against the whole file
+ * with a whitespace-tolerant pattern closes that hole.
+ */
+const METHODS =
+  "find|findOne|aggregate|countDocuments|insertOne|insertMany|updateOne|updateMany|deleteOne|deleteMany|bulkWrite|replaceOne|findOneAndUpdate|distinct";
+
 const MONGO_PATTERNS = [
-  { re: /from\s+["']mongodb["']/, what: 'imports from "mongodb"' },
-  { re: /collections\.\w+\.(find|findOne|aggregate|countDocuments|insertOne|insertMany|updateOne|updateMany|deleteOne|deleteMany|bulkWrite)\(/, what: "queries a collection directly" },
-  { re: /collections\.get\(["'][^"']+["']\)\.(find|findOne|aggregate|countDocuments|updateOne|updateMany|deleteOne|bulkWrite)\(/, what: "queries a collection directly" },
+  // `new ObjectId(...)` without importing mongodb is a ReferenceError that a
+  // surrounding try/catch will happily swallow — statuses.js#findTimelineItemById
+  // did exactly that and silently 404'd every /context request. Flag the
+  // CONSTRUCTOR, not just the import.
+  { re: /new\s+ObjectId\s*\(/g, what: "constructs an ObjectId" },
+  // A helper that takes the collection as a PARAMETER evades `collections.x.find(`.
+  // Catch the bare method call on any identifier that looks like a collection.
+  { re: /\b(?:collection|col|coll)\s*\.\s*(?:find|findOne|aggregate|countDocuments|insertOne|insertMany|updateOne|updateMany|deleteOne|deleteMany|bulkWrite|distinct)\s*\(/g, what: "queries a collection passed as a parameter" },
+  { re: new RegExp(`from\\s+["']mongodb["']`, "g"), what: 'imports from "mongodb"' },
+  { re: new RegExp(`collections\\.\\w+\\s*\\.\\s*(?:${METHODS})\\s*\\(`, "g"), what: "queries a collection directly" },
+  { re: new RegExp(`collections\\.get\\(["'][^"']+["']\\)\\s*\\.\\s*(?:${METHODS})\\s*\\(`, "g"), what: "queries a collection directly" },
 ];
 
 async function* walk(dir) {
@@ -70,15 +83,25 @@ const cleared = [];
 for (const dir of ADAPTER_DIRS) {
   for await (const file of walk(dir)) {
     const source = await readFile(join(ROOT, file), "utf8");
-    const lines = source.split("\n");
+
+    // Blank out comments IN PLACE — replacing them with same-length filler
+    // keeps every byte offset, so reported line numbers match the real file.
+    // Deleting them instead shifts every subsequent line, which made an earlier
+    // version of this script report positions that pointed at unrelated code.
+    const blank = (match) => match.replace(/[^\n]/g, " ");
+    const code = source
+      .replace(/\/\*[\s\S]*?\*\//g, blank)
+      .replace(/^\s*\/\/.*$/gm, blank);
 
     const hits = [];
-    lines.forEach((line, i) => {
-      if (line.trim().startsWith("//") || line.trim().startsWith("*")) return;
-      for (const { re, what } of MONGO_PATTERNS) {
-        if (re.test(line)) hits.push({ line: i + 1, what, text: line.trim() });
+    for (const { re, what } of MONGO_PATTERNS) {
+      re.lastIndex = 0;
+      let match;
+      while ((match = re.exec(code)) !== null) {
+        const line = code.slice(0, match.index).split("\n").length;
+        hits.push({ line, what, text: match[0].replace(/\s+/g, " ").trim() });
       }
-    });
+    }
 
     if (hits.length > 0 && !NOT_YET_PORTED.has(file)) {
       violations.push({ file, hits });

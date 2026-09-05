@@ -1,15 +1,22 @@
 /**
- * Mastodon pagination helpers (lib/mastodon/helpers/pagination.js).
- * parseLimit clamping + buildPaginationQuery cursor→Mongo-filter mapping.
+ * Pagination.
+ *
+ * `parseLimit` still lives in lib/mastodon/helpers/pagination.js — it is pure
+ * parameter parsing with no storage involved, so it stays in the adapter.
+ *
+ * The cursor→filter mapping it used to sit beside (`buildPaginationQuery`) was
+ * deleted in Stage 4: core owns cursor encoding end to end (DD-2), so the tests
+ * for that behaviour now target lib/core/cursor.js. Same guarantees, one owner.
  */
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-import { parseLimit, buildPaginationQuery } from "../lib/mastodon/helpers/pagination.js";
+import { parseLimit } from "../lib/mastodon/helpers/pagination.js";
+import { buildPage, decodeCursor, encodeCursor } from "../lib/core/cursor.js";
 
 const OID = "a1b2c3d4e5f6a1b2c3d4e5f6"; // valid 24-char hex ObjectId
 
-// --- parseLimit (DEFAULT_LIMIT=20, MAX_LIMIT=40) ---
+// ─── parseLimit (DEFAULT_LIMIT=20, MAX_LIMIT=40) ─────────────────────────────
 
 test("parseLimit returns a valid in-range value unchanged", () => {
   assert.equal(parseLimit("5"), 5);
@@ -19,47 +26,81 @@ test("parseLimit returns a valid in-range value unchanged", () => {
 test("parseLimit falls back to default (20) for junk / <1", () => {
   assert.equal(parseLimit("abc"), 20);
   assert.equal(parseLimit("0"), 20);
-  assert.equal(parseLimit("-3"), 20);
+  assert.equal(parseLimit(-3), 20);
   assert.equal(parseLimit(undefined), 20);
 });
 
-test("parseLimit clamps to max (40)", () => {
-  assert.equal(parseLimit("100"), 40);
-  assert.equal(parseLimit("40"), 40);
+test("parseLimit clamps to the maximum", () => {
+  assert.equal(parseLimit("9999"), 40);
 });
 
-// --- buildPaginationQuery ---
+// ─── core/cursor ─────────────────────────────────────────────────────────────
 
-test("buildPaginationQuery: no cursors → newest-first, base filter preserved", () => {
-  const { filter, sort, reverse } = buildPaginationQuery({ visibility: "public" }, {});
-  assert.deepEqual(sort, { _id: -1 });
+test("decodeCursor accepts a valid ObjectId hex string", () => {
+  const decoded = decodeCursor(OID);
+  assert.ok(decoded);
+  assert.equal(decoded.toString(), OID);
+});
+
+test("decodeCursor returns null for junk rather than throwing", () => {
+  // A malformed cursor from a client must degrade to "first page", not 500.
+  assert.equal(decodeCursor("not-an-id"), null);
+  assert.equal(decodeCursor(""), null);
+  assert.equal(decodeCursor(undefined), null);
+  assert.equal(decodeCursor(42), null);
+});
+
+test("encodeCursor round-trips a document id", () => {
+  const decoded = decodeCursor(OID);
+  assert.equal(encodeCursor({ _id: decoded }), OID);
+});
+
+test("encodeCursor returns null for a document without an id", () => {
+  assert.equal(encodeCursor({}), null);
+  assert.equal(encodeCursor(null), null);
+});
+
+test("buildPage: `before` selects strictly older items", () => {
+  const { filter, sort, reverse } = buildPage({ type: "note" }, { before: OID });
+
+  assert.equal(filter.type, "note", "base filter is preserved");
+  assert.equal(filter._id.$lt.toString(), OID);
   assert.equal(reverse, false);
-  assert.equal(filter.visibility, "public");
-  assert.equal(filter._id, undefined);
+  assert.deepEqual(sort, { receivedAt: -1, _id: -1 });
 });
 
-test("buildPaginationQuery: max_id → _id.$lt, newest-first", () => {
-  const { filter, sort, reverse } = buildPaginationQuery({}, { max_id: OID });
-  assert.ok(filter._id.$lt, "sets $lt");
-  assert.deepEqual(sort, { _id: -1 });
+test("buildPage: `after` selects strictly newer items, newest first", () => {
+  const { filter, reverse } = buildPage({}, { after: OID });
+
+  assert.equal(filter._id.$gt.toString(), OID);
   assert.equal(reverse, false);
 });
 
-test("buildPaginationQuery: since_id → _id.$gt, newest-first", () => {
-  const { filter, sort } = buildPaginationQuery({}, { since_id: OID });
-  assert.ok(filter._id.$gt, "sets $gt");
-  assert.deepEqual(sort, { _id: -1 });
+test("buildPage: `since` selects newer items oldest-first, and reverses", () => {
+  const { filter, sort, reverse } = buildPage({}, { since: OID });
+
+  assert.equal(filter._id.$gt.toString(), OID);
+  assert.equal(reverse, true, "caller must reverse to restore newest-first");
+  assert.deepEqual(sort, { receivedAt: 1, _id: 1 });
 });
 
-test("buildPaginationQuery: min_id → _id.$gt, oldest-first + reverse", () => {
-  const { filter, sort, reverse } = buildPaginationQuery({}, { min_id: OID });
-  assert.ok(filter._id.$gt, "sets $gt");
-  assert.deepEqual(sort, { _id: 1 });
-  assert.equal(reverse, true);
+test("buildPage: no cursor leaves the filter untouched", () => {
+  const { filter, reverse } = buildPage({ type: "note" }, {});
+
+  assert.deepEqual(filter, { type: "note" });
+  assert.equal(reverse, false);
 });
 
-test("buildPaginationQuery: invalid cursor is ignored (no _id filter)", () => {
-  const { filter, sort } = buildPaginationQuery({}, { max_id: "not-an-objectid" });
-  assert.equal(filter._id, undefined);
-  assert.deepEqual(sort, { _id: -1 });
+test("buildPage: an unusable cursor is ignored, not fatal", () => {
+  const { filter } = buildPage({ type: "note" }, { before: "garbage" });
+
+  assert.deepEqual(filter, { type: "note" });
+});
+
+test("buildPage: sorts on receivedAt with _id as tiebreak (DD-1)", () => {
+  const { sort } = buildPage({}, {});
+
+  // receivedAt is arrival time. `_id` breaks ties so same-millisecond arrivals
+  // stay stably ordered and cursors remain unambiguous.
+  assert.deepEqual(sort, { receivedAt: -1, _id: -1 });
 });
