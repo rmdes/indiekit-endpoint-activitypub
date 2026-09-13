@@ -34,6 +34,7 @@ import {
   featuredPinController,
   featuredUnpinController,
 } from "../../lib/controllers/featured.js";
+import { federationMgmtController } from "../../lib/controllers/federation-mgmt.js";
 
 /** The plugin fields profile controllers read. */
 export const PLUGIN_DOUBLE = {
@@ -94,6 +95,13 @@ export function makeReaderApp(collectionMap) {
   app.get("/admin/featured", featuredGetController("/activitypub"));
   app.post("/admin/featured/pin", featuredPinController("/activitypub", PLUGIN_DOUBLE));
   app.post("/admin/featured/unpin", featuredUnpinController("/activitypub", PLUGIN_DOUBLE));
+  app.get(
+    "/admin/federation",
+    federationMgmtController("/activitypub", {
+      ...PLUGIN_DOUBLE,
+      _collections: Object.fromEntries(collectionMap),
+    }),
+  );
 
   return app;
 }

@@ -368,6 +368,19 @@ describe("integration: admin pages ported onto core (smoke)", () => {
       assert.equal(await mongo.collections.ap_featured.findOne({ postUrl: url }), null, "unpinned");
     });
 
+    it("federation management page renders (collection stats used to throw)", async () => {
+      await mongo.collections.ap_blocked_servers.insertOne({
+        hostname: "fedmgmt-blocked.example",
+        blockedAt: "2026-08-01T00:00:00.000Z",
+      });
+
+      const res = await request(reader).get("/admin/federation").expect(200);
+      assert.ok(res.text.includes("fedmgmt-blocked.example"), "blocked servers listed");
+      assert.ok(res.text.includes("Own Note Alpha"), "publication posts listed");
+
+      await mongo.collections.ap_blocked_servers.deleteOne({ hostname: "fedmgmt-blocked.example" });
+    });
+
     it("public profile renders pinned and recent posts", async () => {
       const res = await request(reader)
         .get("/users/rick")
