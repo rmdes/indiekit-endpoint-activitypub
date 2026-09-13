@@ -348,6 +348,8 @@ export default class ActivityPubEndpoint {
         followActor: (url, info) => pluginRef.followActor(url, info),
         unfollowActor: (url) => pluginRef.unfollowActor(url),
         broadcastActorUpdate: () => pluginRef.broadcastActorUpdate(),
+        // Tombstone (FEP-4f05) + Delete to followers for a post deleted via the API
+        federatePostDeletion: (url) => pluginRef.delete(url),
         loadRsaKey: () => pluginRef._loadRsaPrivateKey(),
       },
     });
