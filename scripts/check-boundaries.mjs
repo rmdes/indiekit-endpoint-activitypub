@@ -61,7 +61,6 @@ const ADAPTER_DIRS = [
  * new adapter needs data, give it a core function.
  */
 const NOT_YET_PORTED = new Set([
-  "lib/controllers/post-detail.js",
   "lib/routes/public-routes.js",
 ]);
 
