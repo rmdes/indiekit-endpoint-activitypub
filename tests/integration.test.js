@@ -347,6 +347,27 @@ describe("integration: admin pages ported onto core (smoke)", () => {
       assert.deepEqual(profile.alsoKnownAs, ["https://old.example/@rick"]);
     });
 
+    it("pinning and unpinning a post works (pin used to throw a TDZ ReferenceError)", async () => {
+      const url = "https://local.example/replies/b";
+
+      await request(reader)
+        .post("/admin/featured/pin")
+        .type("form")
+        .send({ postUrl: url })
+        .expect(302);
+      assert.ok(await mongo.collections.ap_featured.findOne({ postUrl: url }), "pinned");
+
+      const page = await request(reader).get("/admin/featured").expect(200);
+      assert.ok(page.text.includes("Own Reply Beta"), "pinned post listed with its title");
+
+      await request(reader)
+        .post("/admin/featured/unpin")
+        .type("form")
+        .send({ postUrl: url })
+        .expect(302);
+      assert.equal(await mongo.collections.ap_featured.findOne({ postUrl: url }), null, "unpinned");
+    });
+
     it("public profile renders pinned and recent posts", async () => {
       const res = await request(reader)
         .get("/users/rick")

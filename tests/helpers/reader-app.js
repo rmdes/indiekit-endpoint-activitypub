@@ -29,6 +29,11 @@ import { myProfileController } from "../../lib/controllers/my-profile.js";
 import { publicProfileController } from "../../lib/controllers/public-profile.js";
 import { profilePostController } from "../../lib/controllers/profile.js";
 import { migratePostController } from "../../lib/controllers/migrate.js";
+import {
+  featuredGetController,
+  featuredPinController,
+  featuredUnpinController,
+} from "../../lib/controllers/featured.js";
 
 /** The plugin fields profile controllers read. */
 export const PLUGIN_DOUBLE = {
@@ -86,6 +91,9 @@ export function makeReaderApp(collectionMap) {
   app.use(express.urlencoded({ extended: true }));
   app.post("/admin/profile", profilePostController("/activitypub", PLUGIN_DOUBLE));
   app.post("/admin/migrate", migratePostController("/activitypub", PLUGIN_DOUBLE.options));
+  app.get("/admin/featured", featuredGetController("/activitypub"));
+  app.post("/admin/featured/pin", featuredPinController("/activitypub", PLUGIN_DOUBLE));
+  app.post("/admin/featured/unpin", featuredUnpinController("/activitypub", PLUGIN_DOUBLE));
 
   return app;
 }
