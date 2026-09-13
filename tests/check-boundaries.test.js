@@ -24,6 +24,7 @@ describe("check-boundaries scanSource — must flag", () => {
     "mongodb import": `import { ObjectId } from "mongodb";`,
     "storage import (adapters go through core)": `import { getFollowedTags } from "../storage/followed-tags.js";`,
     "storage import, deeper path": `import { addTimelineItem } from "../../storage/timeline.js";`,
+    "dynamic storage import (public-routes.js)": `const { getTombstone } = await import("../storage/tombstones.js");`,
   };
 
   for (const [name, code] of Object.entries(cases)) {

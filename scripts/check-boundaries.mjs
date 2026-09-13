@@ -103,6 +103,7 @@ const PATTERNS = [
   { re: /new\s+ObjectId\s*\(/g, what: "constructs an ObjectId" },
   { re: /from\s+["']mongodb["']/g, what: 'imports from "mongodb"' },
   { re: /from\s+["'](?:\.\.\/)+storage\//g, what: "imports lib/storage/* (go through lib/core/*)" },
+  { re: /import\s*\(\s*["'](?:\.\.\/)+storage\//g, what: "dynamically imports lib/storage/* (go through lib/core/*)" },
 ];
 
 /**
