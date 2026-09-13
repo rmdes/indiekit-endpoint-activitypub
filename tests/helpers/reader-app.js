@@ -25,6 +25,14 @@ import { apiTimelineController } from "../../lib/controllers/api-timeline.js";
 import { readerController } from "../../lib/controllers/reader.js";
 import { dashboardController } from "../../lib/controllers/dashboard.js";
 import { followersController } from "../../lib/controllers/followers.js";
+import { myProfileController } from "../../lib/controllers/my-profile.js";
+import { publicProfileController } from "../../lib/controllers/public-profile.js";
+
+/** The plugin fields profile controllers read. */
+export const PLUGIN_DOUBLE = {
+  options: { mountPath: "/activitypub", actor: { handle: "rick" } },
+  _publicationUrl: "https://local.example/",
+};
 
 const PLUGIN_VIEWS = fileURLToPath(new URL("../../views", import.meta.url));
 
@@ -71,6 +79,8 @@ export function makeReaderApp(collectionMap) {
   app.get("/admin/reader", readerController("/activitypub"));
   app.get("/admin", dashboardController("/activitypub"));
   app.get("/admin/followers", followersController("/activitypub"));
+  app.get("/admin/my-profile", myProfileController(PLUGIN_DOUBLE));
+  app.get("/users/:identifier", publicProfileController(PLUGIN_DOUBLE));
 
   return app;
 }

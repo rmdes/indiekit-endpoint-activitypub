@@ -66,11 +66,9 @@ const NOT_YET_PORTED = new Set([
   "lib/controllers/federation-mgmt.js",
   "lib/controllers/hashtag-explore.js",
   "lib/controllers/migrate.js",
-  "lib/controllers/my-profile.js",
   "lib/controllers/post-detail.js",
   "lib/controllers/profile.js",
   "lib/controllers/profile.remote.js",
-  "lib/controllers/public-profile.js",
   "lib/mastodon/middleware/token-required.js",
   "lib/routes/public-routes.js",
 ]);

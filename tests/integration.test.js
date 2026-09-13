@@ -15,7 +15,7 @@ import { after, before, describe, it } from "node:test";
 import request from "supertest";
 
 import { withMongo } from "./helpers/mongo.js";
-import { seed } from "./helpers/fixtures.js";
+import { AUTHORS, seed } from "./helpers/fixtures.js";
 import { makeReaderApp } from "./helpers/reader-app.js";
 import { makeMastodonApp, BEARER } from "./helpers/mastodon-app.js";
 
@@ -287,5 +287,48 @@ describe("integration: admin pages ported onto core (smoke)", () => {
   it("pending tab lists pending requests", async () => {
     const res = await request(reader).get("/admin/followers?tab=pending").expect(200);
     assert.ok(res.text.includes("Pending Person"));
+  });
+
+  describe("profile pages", () => {
+    before(async () => {
+      // Indiekit's own `posts` collection is not in the harness list.
+      const posts = mongo.db.collection("posts");
+      mongo.collectionMap.set("posts", posts);
+      await posts.deleteMany({});
+      await posts.insertMany([
+        { properties: { url: "https://local.example/notes/a", "post-type": "note", content: { text: "Own Note Alpha", html: "<p>Own Note Alpha</p>" }, published: "2026-08-01T00:00:00.000Z" } },
+        { properties: { url: "https://local.example/replies/b", "post-type": "reply", content: { text: "Own Reply Beta", html: "<p>Own Reply Beta</p>" }, published: "2026-08-02T00:00:00.000Z", "in-reply-to": "https://remote.example/notes/1" } },
+      ]);
+      await mongo.collections.ap_featured.insertOne({
+        postUrl: "https://local.example/notes/a",
+        pinnedAt: "2026-08-03T00:00:00.000Z",
+      });
+    });
+
+    it("my-profile posts tab lists own posts", async () => {
+      const res = await request(reader).get("/admin/my-profile").expect(200);
+      assert.ok(res.text.includes("Own Note Alpha"));
+    });
+
+    it("my-profile replies tab lists only replies", async () => {
+      const res = await request(reader).get("/admin/my-profile?tab=replies").expect(200);
+      assert.ok(res.text.includes("Own Reply Beta"));
+      assert.ok(!res.text.includes("Own Note Alpha"));
+    });
+
+    it("my-profile likes tab resolves liked items from the timeline", async () => {
+      const res = await request(reader).get("/admin/my-profile?tab=likes").expect(200);
+      // An unresolved like falls back to a card whose text is the bare URL;
+      // a resolved one renders the timeline item's author.
+      assert.ok(res.text.includes(AUTHORS.AUTHOR_A.name), "liked item enriched");
+    });
+
+    it("public profile renders pinned and recent posts", async () => {
+      const res = await request(reader)
+        .get("/users/rick")
+        .set("Accept", "text/html")
+        .expect(200);
+      assert.ok(res.text.includes("Own Note Alpha"));
+    });
   });
 });
