@@ -39,8 +39,8 @@ test("serializeMediaAttachment detects type from contentType", () => {
   assert.equal(serializeMediaAttachment({ contentType: "application/pdf" }).type, "unknown");
 });
 
-test("serializeMediaAttachment: image/gif resolves to 'image' (gifv branch is unreachable — latent)", () => {
-  // detectMediaType checks 'image/' before 'image/gif', so gifv is never returned.
+test("serializeMediaAttachment: image/gif stays 'image', never 'gifv'", () => {
+  // gifv = looping MP4 played in <video>; a raw .gif labelled gifv would not play.
   assert.equal(serializeMediaAttachment({ contentType: "image/gif" }).type, "image");
 });
 
