@@ -61,12 +61,10 @@ const ADAPTER_DIRS = [
  * new adapter needs data, give it a core function.
  */
 const NOT_YET_PORTED = new Set([
-  "lib/controllers/compose.js",
   "lib/controllers/featured.js",
   "lib/controllers/federation-mgmt.js",
   "lib/controllers/hashtag-explore.js",
   "lib/controllers/post-detail.js",
-  "lib/mastodon/middleware/token-required.js",
   "lib/routes/public-routes.js",
 ]);
 
