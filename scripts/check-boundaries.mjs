@@ -52,17 +52,16 @@ const ADAPTER_DIRS = [
 /**
  * Modules not yet ported to lib/core/*.
  *
- * This list existed as tracked debt during the Stage 2-4 port and went from 38
- * entries to zero — but only against the name-matching check, which could not
- * see most of what remained. The method-matching check (2026-09-13) re-found
- * these 20 modules / 64 hits. They are listed so each port lands as its own
- * green commit; every entry is removed as it is ported, and the list must end
- * EMPTY again. Adding an entry for new code is how this rule dies quietly: if a
- * new adapter needs data, give it a core function.
+ * EMPTY, and it must stay that way. Every adapter goes through lib/core/*.
+ *
+ * History: this list went from 38 entries to zero during the Stage 2-4 port —
+ * but only against the old name-matching check, which could not see most of
+ * what remained. The method-matching check (2026-09-13) re-found 20 modules /
+ * 64 hits; they were ported one green commit at a time, and the list is empty
+ * again, this time for real. Adding an entry back is how this rule dies
+ * quietly: if a new adapter needs data, give it a core function.
  */
-const NOT_YET_PORTED = new Set([
-  "lib/routes/public-routes.js",
-]);
+const NOT_YET_PORTED = new Set([]);
 
 /** Methods that exist on a MongoDB Collection or Cursor and not on Array/Map. */
 const MONGO_ONLY_METHODS = [
