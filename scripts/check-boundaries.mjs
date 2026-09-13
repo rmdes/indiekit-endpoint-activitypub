@@ -69,7 +69,6 @@ const NOT_YET_PORTED = new Set([
   "lib/controllers/hashtag-explore.js",
   "lib/controllers/messages.js",
   "lib/controllers/migrate.js",
-  "lib/controllers/moderation.js",
   "lib/controllers/my-profile.js",
   "lib/controllers/post-detail.js",
   "lib/controllers/profile.js",
