@@ -248,3 +248,44 @@ describe("integration: both lanes mounted over the same database", () => {
     });
   });
 });
+
+describe("integration: admin pages ported onto core (smoke)", () => {
+  // These pages had no coverage when their direct Mongo calls moved to core;
+  // a wrong collection or field name would only show up here.
+  before(async () => {
+    await mongo.collections.ap_followers.insertMany([
+      { actorUrl: "https://a.example/users/old", name: "Old Follower", followedAt: "2026-07-01T00:00:00.000Z" },
+      { actorUrl: "https://a.example/users/new", name: "New Follower", followedAt: "2026-08-01T00:00:00.000Z" },
+    ]);
+    await mongo.collections.ap_pending_follows.insertOne({
+      actorUrl: "https://b.example/users/pending",
+      name: "Pending Person",
+      handle: "pending@b.example",
+      requestedAt: "2026-08-02T00:00:00.000Z",
+    });
+    await mongo.collections.ap_activities.insertOne({
+      type: "Follow",
+      actorUrl: "https://a.example/users/new",
+      actorName: "Activity Actor",
+      receivedAt: "2026-08-01T00:00:00.000Z",
+    });
+  });
+
+  it("dashboard renders recent activity", async () => {
+    const res = await request(reader).get("/admin").expect(200);
+    assert.ok(res.text.includes("Activity Actor"), "recent activity listed");
+  });
+
+  it("followers tab lists followers, newest first", async () => {
+    const res = await request(reader).get("/admin/followers").expect(200);
+    const newAt = res.text.indexOf("New Follower");
+    const oldAt = res.text.indexOf("Old Follower");
+    assert.ok(newAt > -1 && oldAt > -1, "both followers listed");
+    assert.ok(newAt < oldAt, "sorted by followedAt desc");
+  });
+
+  it("pending tab lists pending requests", async () => {
+    const res = await request(reader).get("/admin/followers?tab=pending").expect(200);
+    assert.ok(res.text.includes("Pending Person"));
+  });
+});

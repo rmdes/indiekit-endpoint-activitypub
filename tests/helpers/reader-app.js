@@ -23,6 +23,8 @@ import { templates } from "@indiekit/frontend";
 
 import { apiTimelineController } from "../../lib/controllers/api-timeline.js";
 import { readerController } from "../../lib/controllers/reader.js";
+import { dashboardController } from "../../lib/controllers/dashboard.js";
+import { followersController } from "../../lib/controllers/followers.js";
 
 const PLUGIN_VIEWS = fileURLToPath(new URL("../../views", import.meta.url));
 
@@ -44,7 +46,13 @@ export function makeReaderApp(collectionMap) {
 
   // Controllers reach collections through `application.collections` (a Map),
   // mirroring how Indiekit exposes them on app.locals.
-  app.locals.application = { collections: collectionMap, navigation: [] };
+  // `url` + `imageEndpoint` feed the frontend's imageUrl filter (card avatars).
+  app.locals.application = {
+    collections: collectionMap,
+    navigation: [],
+    url: "https://local.example",
+    imageEndpoint: "/image",
+  };
 
   // Templates reference these; absent values render as empty rather than throw.
   app.locals.publication = { me: "https://local.example/" };
@@ -61,6 +69,8 @@ export function makeReaderApp(collectionMap) {
 
   app.get("/admin/reader/api/timeline", apiTimelineController("/activitypub"));
   app.get("/admin/reader", readerController("/activitypub"));
+  app.get("/admin", dashboardController("/activitypub"));
+  app.get("/admin/followers", followersController("/activitypub"));
 
   return app;
 }

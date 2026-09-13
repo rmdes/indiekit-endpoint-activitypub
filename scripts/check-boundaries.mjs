@@ -62,10 +62,8 @@ const ADAPTER_DIRS = [
  */
 const NOT_YET_PORTED = new Set([
   "lib/controllers/compose.js",
-  "lib/controllers/dashboard.js",
   "lib/controllers/featured.js",
   "lib/controllers/federation-mgmt.js",
-  "lib/controllers/followers.js",
   "lib/controllers/hashtag-explore.js",
   "lib/controllers/migrate.js",
   "lib/controllers/my-profile.js",
