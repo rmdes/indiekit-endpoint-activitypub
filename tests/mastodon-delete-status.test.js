@@ -88,7 +88,10 @@ describe("DELETE /api/v1/statuses/:id (own post)", () => {
     assert.equal(calls.delete[0][2], OWN_URL, "the URL is the third argument");
   });
 
-  it("federates the deletion (Tombstone + Delete) and removes the timeline row", async () => {
+  it("after a Micropub delete, leaves federation to the syndicator hook (no double Delete)", async () => {
+    // Micropub's postContent.delete calls the AP syndicator's delete(url) hook,
+    // which writes the Tombstone and sends Delete. Federating again here would
+    // send followers two Deletes.
     const { calls, options } = doubles();
     const app = makeMastodonApp(mongo.collections, options);
 
@@ -97,7 +100,7 @@ describe("DELETE /api/v1/statuses/:id (own post)", () => {
       .set("Authorization", BEARER)
       .expect(200);
 
-    assert.deepEqual(calls.federated, [OWN_URL]);
+    assert.deepEqual(calls.federated, []);
     assert.equal(await mongo.collections.ap_timeline.findOne({ uid: OWN_URL }), null);
   });
 
