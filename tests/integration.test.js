@@ -289,6 +289,17 @@ describe("integration: admin pages ported onto core (smoke)", () => {
     assert.ok(res.text.includes("Pending Person"));
   });
 
+  it("pending tab's Approve/Reject forms carry the SESSION csrf token", async () => {
+    // followers.js called getToken(request) — the token landed on the throwaway
+    // request object, so validateToken (which reads request.session) rejected
+    // every Approve/Reject with 403.
+    const res = await request(reader).get("/admin/followers?tab=pending").expect(200);
+    const rendered = res.text.match(/name="_csrf" value="([^"]+)"/)?.[1];
+
+    assert.ok(rendered, "form carries a token");
+    assert.equal(rendered, reader.locals.testSession._csrfToken);
+  });
+
   describe("profile pages", () => {
     before(async () => {
       // Indiekit's own `posts` collection is not in the harness list.

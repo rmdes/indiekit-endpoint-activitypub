@@ -76,8 +76,12 @@ export function makeReaderApp(collectionMap) {
   // Minimal in-memory session. csrf.js#getToken writes `_csrfToken` onto it and
   // the controllers embed that in responses; without a session object they 500.
   // Per-request and non-persistent, which is all the read paths need.
+  // One session object for the app's lifetime — a single logged-in owner — so a
+  // CSRF token rendered on one request validates on the next (as in production).
+  const session = {};
+  app.locals.testSession = session;
   app.use((req, _res, next) => {
-    req.session = req.session || {};
+    req.session = req.session || session;
     // Full-page controllers read titles via response.locals.__ (Indiekit's i18n).
     _res.locals.__ = (key) => key;
     next();
