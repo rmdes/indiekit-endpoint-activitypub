@@ -27,6 +27,8 @@ import { dashboardController } from "../../lib/controllers/dashboard.js";
 import { followersController } from "../../lib/controllers/followers.js";
 import { myProfileController } from "../../lib/controllers/my-profile.js";
 import { publicProfileController } from "../../lib/controllers/public-profile.js";
+import { profilePostController } from "../../lib/controllers/profile.js";
+import { migratePostController } from "../../lib/controllers/migrate.js";
 
 /** The plugin fields profile controllers read. */
 export const PLUGIN_DOUBLE = {
@@ -81,6 +83,9 @@ export function makeReaderApp(collectionMap) {
   app.get("/admin/followers", followersController("/activitypub"));
   app.get("/admin/my-profile", myProfileController(PLUGIN_DOUBLE));
   app.get("/users/:identifier", publicProfileController(PLUGIN_DOUBLE));
+  app.use(express.urlencoded({ extended: true }));
+  app.post("/admin/profile", profilePostController("/activitypub", PLUGIN_DOUBLE));
+  app.post("/admin/migrate", migratePostController("/activitypub", PLUGIN_DOUBLE.options));
 
   return app;
 }

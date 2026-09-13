@@ -323,6 +323,30 @@ describe("integration: admin pages ported onto core (smoke)", () => {
       assert.ok(res.text.includes(AUTHORS.AUTHOR_A.name), "liked item enriched");
     });
 
+    it("profile form saves through core, links included", async () => {
+      await request(reader)
+        .post("/admin/profile")
+        .type("form")
+        .send({ name: "Saved Name", actorType: "Service", link_name: ["Site"], link_value: ["https://x.example"] })
+        .expect(200);
+
+      const profile = await mongo.collections.ap_profile.findOne({});
+      assert.equal(profile.name, "Saved Name");
+      assert.equal(profile.actorType, "Service");
+      assert.deepEqual(profile.attachments, [{ name: "Site", value: "https://x.example" }]);
+    });
+
+    it("migration alias saves through core", async () => {
+      await request(reader)
+        .post("/admin/migrate")
+        .type("form")
+        .send({ aliasUrl: "https://old.example/@rick" })
+        .expect(200);
+
+      const profile = await mongo.collections.ap_profile.findOne({});
+      assert.deepEqual(profile.alsoKnownAs, ["https://old.example/@rick"]);
+    });
+
     it("public profile renders pinned and recent posts", async () => {
       const res = await request(reader)
         .get("/users/rick")
