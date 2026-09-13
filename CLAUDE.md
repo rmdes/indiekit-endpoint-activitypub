@@ -11,6 +11,33 @@ An Indiekit plugin that adds full ActivityPub federation via [Fedify](https://fe
 **Node:** >=22
 **Module system:** ESM (`"type": "module"`)
 
+## Single-lane core (v4+) — READ FIRST
+
+The plugin has two client surfaces over one MongoDB: the server-rendered **reader** (`lib/controllers/*` + `views/`) and the **Mastodon Client API** (`lib/mastodon/*`, used by Phanpy/Elk/Moshidon/Fedilab). Until v4 each had its own queries, and they drifted into real defects (AP-D1…D9). Since v4 they are **adapters over one core**:
+
+```
+views/*.njk     ←  lib/controllers/*, lib/routes/*      ─┐
+Mastodon JSON   ←  lib/mastodon/{routes,helpers,...}     ─┼→  lib/core/*  →  lib/storage/* (optional)  →  MongoDB
+AS2 / C2S       ←  (future) lib/c2s/                      ─┘
+```
+
+**Rules:**
+- **Adapters translate, core decides.** An adapter parses transport input, calls core, serialises the result. It holds no queries and no business rules (limits, ordering, visibility, dedup, state models).
+- **Only `lib/core/*` and `lib/storage/*` touch Mongo.** Adapters don't import `lib/storage/*` either (not even dynamically). Core may re-export or delegate to storage where storage owns side effects (e.g. `core/moderation` writes go through `storage/{moderation,server-blocks}` for Redis sync + cache invalidation).
+- **Enforced in CI:** `scripts/check-boundaries.mjs` (runs first in `npm test`) scans `lib/controllers`, `lib/routes`, `lib/mastodon/{routes,helpers,middleware,entities}` for Mongo collection/cursor **methods** on any receiver (`findOne`, `countDocuments`, `updateOne`, `toArray`, …), `new ObjectId`, `mongodb` imports and storage imports. `NOT_YET_PORTED` is **empty and must stay empty** — a new adapter that needs data gets a core function.
+- **Both surfaces must agree.** `tests/parity.test.js` asserts reader and Mastodon lanes return the same thing for shared operations. A new shared feature needs a parity test.
+
+**Ratified decisions (plan DD-1…DD-5):**
+- **DD-1 ordering:** feeds sort by `receivedAt` (arrival, ISO string), `_id` tiebreak; `published` is display only. `isContext` ancestors inherit the `receivedAt` of the item that caused the fetch.
+- **DD-2 cursors:** core owns cursors (`lib/core/cursor.js`). The wire token is the `_id` hex (Mastodon clients paginate with status ids), but `buildPage` bounds pages on the **sort key** by looking up the cursor document (keyset on `(sortField, _id)`), never on `_id` alone.
+- **DD-3 read state:** one nullable `readAt` on `ap_timeline` and `ap_notifications`. Legacy `read`/`dismissed` are still dual-written (migration M-1a) until M-1b drops them.
+- **DD-4 visibility:** home includes followers-only; public/tag timelines are narrower. Predicates live only in `core/timeline.js`.
+- **DD-5 identity:** core keys on the AP object URI (`uid`); adapters mint surface ids.
+
+**Startup migrations** (`lib/migrations/single-lane-core.js#runSingleLaneMigrations`, run immediately from `index.js`, idempotent): `receivedAt` indexes → backfill `receivedAt` → backfill `readAt` → backfill followed-tag `followedAt` → `explain()` verify the feed query uses an index (logs `Timeline feed plan: IXSCAN on …`).
+
+**Docs:** plan `documentation-central/plans/2026-08-10-activitypub-single-lane-core-plan.md`; current state and open work `documentation-central/audits/2026-09-13-activitypub-state-checkpoint.md`.
+
 ## Architecture Overview
 
 ```
@@ -38,20 +65,36 @@ index.js                          ← Plugin entry, route registration, lifecycl
 ├── lib/lookup-cache.js           ← In-memory LRU cache for actor lookups
 ├── lib/resolve-author.js         ← Author resolution with fallback chain
 ├── lib/content-utils.js          ← Content sanitization and text processing
-├── lib/emoji-utils.js            ← Custom emoji detection and rendering
+│                                    (lib/emoji-utils.js was DELETED in v3.13.10 — unhardened duplicate; use timeline-store#replaceCustomEmoji)
 ├── lib/fedidb.js                 ← FediDB integration for popular accounts
 ├── lib/batch-refollow.js         ← Gradual re-follow for imported Mastodon accounts
 ├── lib/migration.js              ← CSV parsing + WebFinger resolution for Mastodon import
 ├── lib/csrf.js                   ← CSRF token generation/validation
+├── lib/defaults.js, navigation.js, settings.js, endpoint-federation.js ← extracted from index.js (v3.13.x)
+├── lib/core/                     ← THE domain layer — every adapter calls these (see "Single-lane core")
+│   ├── timeline.js               ← feed filters/visibility, getTimeline, countNewer, read state, getItem, updateItemFields, addTimelineItem (re-export)
+│   ├── cursor.js                 ← opaque cursors + keyset buildPage (sort-key aware)
+│   ├── notifications.js          ← list/filter/markRead (readAt)/delete
+│   ├── interactions.js           ← like/boost/bookmark + undo (with delivery), interaction rows/pages
+│   ├── threads.js                ← getAncestors (remote fetch w/ ctx), getDescendants, getThread
+│   ├── profile.js                ← profile, counts, followers pages, isFollowing, activity log, relationships
+│   ├── posts.js                  ← edits/history/idempotency, publication posts (posts collection), pins, resolvePostUrl
+│   ├── moderation.js             ← mute/block/server blocks (writes delegate to storage), predicates, row lists
+│   ├── tags.js                   ← followed hashtags: local followedAt + tags.pub globalFollow model
+│   ├── follow-requests.js, messages.js, filters.js, markers.js, media.js, tabs.js, oauth.js, collections-io.js
+├── lib/routes/                   ← public-routes.js (AS2 content negotiation, public profile), admin-routes.js
 ├── lib/migrations/
-│   └── separate-mentions.js      ← Data migration: split mentions from notifications
-├── lib/storage/
-│   ├── timeline.js               ← Timeline CRUD with cursor pagination
-│   ├── notifications.js          ← Notification CRUD with read/unread tracking
-│   ├── moderation.js             ← Mute/block storage
-│   ├── server-blocks.js          ← Server-level domain blocking
-│   ├── followed-tags.js          ← Hashtag follow/unfollow storage
+│   ├── separate-mentions.js      ← Data migration: split mentions from notifications
+│   ├── single-lane-core.js       ← v4 migrations: receivedAt/readAt backfills, index verify, tag followedAt
+│   └── backfill-follower-inbox.js ← repair followers with no inbox (v3.13.32)
+├── lib/storage/                  ← persistence helpers core delegates to (adapters must NOT import these)
+│   ├── timeline.js               ← ingest (addTimelineItem stamps receivedAt/readAt), retention cleanup
+│   ├── notifications.js          ← Notification ingest
+│   ├── moderation.js             ← Mute/block writes (+ moderation cache invalidation)
+│   ├── server-blocks.js          ← Server blocks (+ Redis set sync); isServerBlocked for the inbox
+│   ├── tombstones.js             ← FEP-4f05 tombstone writes
 │   └── messages.js               ← Direct message storage
+│                                    (storage/followed-tags.js was DELETED — model lives in core/tags.js)
 ├── lib/mastodon/                 ← Mastodon Client API (Phanpy/Elk/Moshidon/Fedilab compatibility)
 │   ├── router.js                 ← Main router: body parsers, CORS, token resolution, sub-routers
 │   ├── backfill-timeline.js      ← Startup backfill: posts collection → ap_timeline
@@ -64,7 +107,7 @@ index.js                          ← Plugin entry, route registration, lifecycl
 │   │   ├── media.js              ← Media attachment entity
 │   │   └── instance.js           ← Instance info entity
 │   ├── helpers/
-│   │   ├── pagination.js         ← Published-date cursor pagination (NOT ObjectId-based)
+│   │   ├── pagination.js         ← parseLimit + Link headers only; cursors are core/cursor.js
 │   │   ├── id-mapping.js         ← Deterministic account IDs: sha256(actorUrl).slice(0,24)
 │   │   ├── interactions.js       ← Like/boost/bookmark via Fedify AP activities
 │   │   ├── resolve-account.js    ← Remote account resolution via Fedify WebFinger + actor fetch
@@ -72,7 +115,7 @@ index.js                          ← Plugin entry, route registration, lifecycl
 │   │   └── enrich-accounts.js    ← Batch-enrich embedded account stats in timeline responses
 │   ├── middleware/
 │   │   ├── cors.js               ← CORS for browser-based SPA clients
-│   │   ├── token-required.js     ← Bearer token → ap_oauth_tokens lookup
+│   │   ├── token-required.js     ← Bearer header parsing; policy is core/oauth#resolveAccessToken
 │   │   ├── scope-required.js     ← OAuth scope validation
 │   │   └── error-handler.js      ← JSON error responses for API routes
 │   └── routes/
@@ -83,8 +126,11 @@ index.js                          ← Plugin entry, route registration, lifecycl
 │       ├── notifications.js      ← Notification listing with type filtering
 │       ├── search.js             ← Account/status/hashtag search with remote resolution
 │       ├── instance.js           ← Instance info, nodeinfo, custom emoji, preferences
-│       ├── media.js              ← Media upload (stub)
-│       └── stubs.js              ← 25+ stub endpoints preventing client errors
+│       ├── media.js              ← Media upload via core/media (Micropub media endpoint)
+│       ├── filters.js            ← Keyword filters v2 CRUD (core/filters)
+│       └── stubs.js              ← Misc endpoints — most are REAL now (mutes, blocks, follow_requests + authorize/reject,
+│                                    domain_blocks, followed_tags, featured_tags, conversations, markers, bookmarks,
+│                                    favourites); a few remain constant [] (lists, trends, suggestions, announcements, …)
 ├── lib/controllers/              ← Express route handlers (admin UI)
 │   ├── dashboard.js, reader.js, compose.js, profile.js, profile.remote.js
 │   ├── public-profile.js         ← Public profile page (HTML fallback for actor URL)
@@ -144,17 +190,17 @@ processing pipeline via item-processing.js:
 | `ap_following` | Accounts we follow | `actorUrl` (unique), `source`, `acceptedAt` |
 | `ap_activities` | Activity log (TTL-indexed) | `direction`, `type`, `actorUrl`, `objectUrl`, `receivedAt` |
 | `ap_keys` | Cryptographic key pairs | `type` ("rsa" or "ed25519"), key material |
-| `ap_kv` | Fedify KvStore + job state | `_id` (key path), `value` |
+| `ap_kv` | Fedify KvStore fallback (Redis `RedisKvStore` when `redisUrl` is set — production) + job state | `_id` (key path), `value` |
 | `ap_profile` | Actor profile (single doc) | `name`, `summary`, `icon`, `attachments`, `actorType` |
 | `ap_featured` | Pinned posts | `postUrl`, `pinnedAt` |
 | `ap_featured_tags` | Featured hashtags | `tag`, `addedAt` |
-| `ap_timeline` | Reader timeline items | `uid` (unique), `published`, `author`, `content`, `visibility`, `isContext` |
-| `ap_notifications` | Likes, boosts, follows, mentions | `uid` (unique), `type`, `read` |
-| `ap_muted` | Muted actors/keywords | `url` or `keyword` |
-| `ap_blocked` | Blocked actors | `url` |
+| `ap_timeline` | Reader timeline items | `uid` (unique), `receivedAt` (feed sort, DD-1), `readAt` (DD-3), `published` (display), `author`, `content`, `visibility`, `isContext`; legacy `read` dual-written until M-1b |
+| `ap_notifications` | Likes, boosts, follows, mentions | `uid` (unique), `type`, `readAt`; legacy `read`/`dismissed` dual-written until M-1b |
+| `ap_muted` | Muted actors/keywords | `url` or `keyword` (both shapes in one collection — AP-D9), `mutedAt` |
+| `ap_blocked` | Blocked actors | `url`, `blockedAt` |
 | `ap_interactions` | Like/boost tracking per post | `objectUrl`, `type` |
 | `ap_messages` | Direct messages | `uid` (unique), `conversationId`, `author`, `content` |
-| `ap_followed_tags` | Hashtags we follow | `tag` (unique) |
+| `ap_followed_tags` | Hashtags we follow | `tag` (unique), `followedAt` (local follow), `globalFollow`/`globalActorUrl` (tags.pub) — independent states, see gotcha #50 |
 | `ap_explore_tabs` | Saved explore instances | `instance` (unique), `label` |
 | `ap_reports` | Outbound Flag activities | `actorUrl`, `reportedAt` |
 | `ap_pending_follows` | Follow requests awaiting approval | `actorUrl` (unique), `receivedAt` |
@@ -411,8 +457,8 @@ The Mastodon Client API is mounted at `/` (domain root) via `Indiekit.addEndpoin
 
 **Key design decisions:**
 
-- **Published-date pagination** — Status IDs are `encodeCursor(published)` (ms since epoch), NOT MongoDB ObjectIds. This ensures chronological timeline sort regardless of insertion order (backfilled posts get new ObjectIds but retain original published dates).
-- **Status lookup** — `findTimelineItemById()` decodes cursor → published date → MongoDB lookup. Must try both `"2026-03-21T15:33:50.000Z"` (with ms) and `"2026-03-21T15:33:50Z"` (without) because stored dates vary.
+- ~~**Published-date pagination**~~ — SUPERSEDED twice: by ObjectId status ids (#36, v3.12.0) and then by the v4 core (DD-1/DD-2: `receivedAt` sort, keyset cursors in `core/cursor.js`). Kept for history.
+- ~~**Status lookup** by decoded published date~~ — SUPERSEDED by ObjectId lookup (#36).
 - **Own-post detection** — `setLocalIdentity(publicationUrl, handle)` called at init. `serializeAccount()` compares `author.url === publicationUrl` to pass `isLocal: true`.
 - **Account enrichment** — Phanpy never calls `/accounts/:id` for timeline authors. `enrichAccountStats()` batch-resolves unique authors via Fedify after serialization, cached in memory (500 entries, 1h TTL).
 - **OAuth for native apps** — Android Custom Tabs block 302 redirects to custom URI schemes (`moshidon-android-auth://`, `fedilab://`). Use HTML page with JS `window.location` redirect instead.
@@ -440,7 +486,7 @@ When creating posts via `POST /api/v1/statuses`:
 **Key behaviors:**
 - `findTimelineItemById` does ObjectId-only lookup — no date parsing, no ambiguity
 - `in_reply_to_id` and `in_reply_to_account_id` are batch-resolved via `resolve-reply-ids.js` using parent's `_id.toString()` and `remoteActorId(author.url)`
-- Pagination uses ObjectId ordering (`{ _id: -1 }`) — ObjectIds have a 4-byte timestamp prefix so chronological sort works
+- ~~Pagination uses ObjectId ordering (`{ _id: -1 }`)~~ — SUPERSEDED in v4: feeds sort on `receivedAt` and `core/cursor.js#buildPage` bounds pages on the sort key via the cursor document. The id stays the ObjectId hex; paging on `_id` alone skipped/repeated items whenever `_id` order ≠ `receivedAt` order.
 - `encodeCursor`/`decodeCursor` removed from the API layer entirely
 
 ### 37. Mastodon API — Own Post Handling (v3.10.1+)
@@ -460,7 +506,7 @@ Own posts are added to `ap_timeline` by the AP syndicator after successful deliv
 
 ### 39. Mastodon API — Timeline Filtering (v3.12.5+)
 
-**Reply filtering:** Public and hashtag timelines exclude replies (`inReplyTo: { $exists: false }`). Replies only appear in the context/thread view and the home timeline. This matches Mastodon/Pixelfed behavior.
+**Reply filtering:** Public and hashtag timelines exclude replies. Replies only appear in the context/thread view and the home timeline. This matches Mastodon/Pixelfed behavior. ⚠️ The original `inReplyTo: { $exists: false }` hid ~1/3 of non-replies (an older ingest path stores `inReplyTo: ""`); the predicate is now `{ $in: [null, ""] }` in `core/timeline.js#buildTimelineFilter` (v3.13.24).
 
 **Home timeline reply visibility (DEFERRED):** Mastodon only shows replies in the home timeline when the user follows BOTH the replier AND the person being replied to. Our home timeline currently shows all replies from followed accounts regardless. Implementing this requires loading the following list and cross-checking each reply's target author — an expensive join per timeline load. Tracked as a future improvement.
 
@@ -529,7 +575,8 @@ On restart, `refollow:pending` entries are reset to `import` to prevent stale cl
 1. `constructor()` — Merges options with defaults
 2. `init(Indiekit)` — Called by Indiekit during startup:
    - Stores `publication.me` as `_publicationUrl`
-   - Registers 13 MongoDB collections with indexes
+   - Registers the MongoDB collections (see table above) with indexes (`lib/init-indexes.js`)
+   - Runs the single-lane migrations immediately (not gated — the feed sorts on `receivedAt`)
    - Seeds actor profile from config (first run only)
    - Calls `setupFederation()` which creates Fedify instance + starts queue
    - Registers endpoint (mounts routes) and syndicator
@@ -618,7 +665,7 @@ On restart, `refollow:pending` entries are reset to `import` to prevent stale cl
 | FEP-8fcf | Collection Sync | Outbound | `syncCollection: true` on `sendActivity()` — receiving side NOT implemented |
 | FEP-5feb | Search indexing consent | Full | `indexable: true`, `discoverable: true` on actor in `federation-setup.js` |
 | FEP-f1d5 | Enhanced NodeInfo | Full | `setNodeInfoDispatcher()` in `federation-setup.js` |
-| FEP-4f05 | Soft delete / Tombstone | Full | `lib/storage/tombstones.js` + 410 in `contentNegotiationRoutes` |
+| FEP-4f05 | Soft delete / Tombstone | Full | `lib/storage/tombstones.js` (writes) + `core/posts#resolvePostUrl` → 410 in `lib/routes/public-routes.js` (trailing-slash tolerant) |
 | FEP-3b86 | Activity Intents | Full | WebFinger links + `authorize-interaction.js` intent routing |
 | FEP-044f | Quote posts | Full | `quoteUrl` extraction + `ap-quote-embed.njk` rendering |
 | FEP-c0e0 | Emoji reactions | Vocab only | Fedify provides `EmojiReact` class, no UI in plugin |
@@ -655,22 +702,33 @@ On restart, `refollow:pending` entries are reset to `import` to prevent stale cl
 This plugin uses `@rmdes/indiekit-startup-gate` to defer background tasks until the host signals readiness (after Eleventy build completes). This prevents resource contention during the build.
 
 **Deferred:** `startBatchRefollow()`, `scheduleCleanup()`, `loadBlockedServersToRedis()`, `scheduleKeyRefresh()`, timeline backfill, `startInboxProcessor()`
-**Immediate:** Routes, federation context, inbox HTTP handlers, `runSeparateMentionsMigration()`
+**Immediate:** Routes, federation context, inbox HTTP handlers, `runSeparateMentionsMigration()`, `runSingleLaneMigrations()` (bounded, indexed; the feed depends on it)
 
 See workspace CLAUDE.md for the full startup-gate pattern. Any new background tasks added to this plugin MUST be wrapped in `waitForReady()`. Inbox routes MUST remain immediate — they receive inbound federation traffic regardless of build state.
 
 ## Publishing Workflow
 
-1. Edit code in this repo
+1. Edit code in this repo (branch + PR; CI runs `npm test` on push/PR)
 2. Bump version in `package.json` (npm rejects duplicate versions)
 3. Commit and push
-4. **STOP** — user must run `npm publish` manually (requires OTP)
-5. After publish confirmation, update Dockerfile version in `indiekit-cloudron/`
-6. `cloudron build --no-cache && cloudron update --app rmendes.net --no-backup`
+4. **STOP** — user must run `npm publish` manually (requires OTP). Prereleases (`-beta.N`) → `npm publish --tag beta`
+5. After publish confirmation: bump `version:` for key `activitypub` in `indiekit-plugin-registry/plugin-registry.yaml` (a prerelease needs an exact prerelease range, e.g. `^4.1.0-beta.3` — `^4.1.0` does not match betas) → `node scripts/validate.mjs` → commit/push the registry
+6. In `indiekit-cloudron`: `make registry-update`, run the loadout diff gate (single-lane plan §7), commit the submodule pointer
+7. `make deploy SITE=rmendes APP=rmendes.net` — only rmendes enables this plugin. Never bare `cloudron build`, never the old Dockerfile-version flow
+8. Wait for the Eleventy build to finish before E2E checks (workspace CLAUDE.md)
 
 ## Testing
 
-No automated test suite. Manual testing against real fediverse servers:
+`npm test` = boundary check + `node --test tests/*.test.js` (~300 tests, Node's built-in runner, `mongodb-memory-server` for real-Mongo suites). Keep `node --test`; no new framework.
+
+- `tests/parity.test.js` — reader vs Mastodon lane agreement (one test per shared operation)
+- `tests/characterisation.test.js` — pinned behaviour of both lanes
+- `tests/integration.test.js` — both surfaces over real HTTP (`tests/helpers/reader-app.js` wires `@indiekit/frontend` templates; `tests/helpers/mastodon-app.js` + `BEARER`)
+- `tests/core-*.test.js` — core modules; `tests/check-boundaries.test.js` — the boundary scanner against known evasions
+- **A test is not evidence until you have watched it fail.** Break the code under test (or reintroduce the bug) and confirm the right test goes red before trusting a green run.
+- Not covered: inbox handlers beyond visibility/delete-ownership, federation-setup, syndicator, batch/outbox delivery — the black-box `activitypub-tests/` harness exercises those against a live server.
+
+Manual checks against real fediverse servers:
 
 ```bash
 # WebFinger
@@ -685,7 +743,9 @@ curl -s "https://rmendes.net/nodeinfo/2.1" | jq .
 # Search from Mastodon for @rick@rmendes.net
 ```
 
-### 36. WORKAROUND: Direct Follow for tags.pub (v3.8.4+)
+> **Numbering note:** gotchas 43–47 below were originally numbered 36–40 a second time (duplicates of the Mastodon-API gotchas above). Renumbered 2026-09-13; content unchanged. Older commits/notes may cite them by the old numbers.
+
+### 43. WORKAROUND: Direct Follow for tags.pub (v3.8.4+) — formerly "36"
 
 **File:** `lib/direct-follow.js`
 **Upstream issue:** [tags.pub#10](https://github.com/social-web-foundation/tags.pub/issues/10) — OPEN
@@ -710,15 +770,15 @@ curl -s "https://rmendes.net/nodeinfo/2.1" | jq .
 - `@_followback@tags.pub` does not send Follow activities back despite accepting ours
 - Both suggest tags.pub's outbound delivery is broken — zero inbound requests from `activitypub-bot` user-agent have been observed
 
-### 37. Unverified Delete Activities (Fedify 2.1.0+)
+### 44. Unverified Delete Activities (Fedify 2.1.0+) — formerly "37"
 
 `onUnverifiedActivity()` in `federation-setup.js` handles Delete activities from actors whose signing keys return 404/410. When an account is permanently deleted, the remote server sends a Delete activity but the actor's key endpoint is gone, so HTTP Signature verification fails. The handler checks `reason.type === "keyFetchError"` with status 404/410, cleans up the actor's data (followers, timeline items, notifications), and returns 202 Accepted.
 
-### 38. FEP-8fcf Collection Synchronization — Outbound Only
+### 45. FEP-8fcf Collection Synchronization — Outbound Only — formerly "38"
 
 We pass `syncCollection: true` to Fedify's `sendActivity()` for outbound activities, which attaches `Collection-Synchronization` headers with partial follower digests (XOR'd SHA-256 hashes). However, the **receiving side** (parsing inbound headers, digest comparison, reconciliation) is NOT implemented by Fedify or by us. Remote servers that send Collection-Synchronization headers to us will have them ignored. Full FEP-8fcf compliance would require a `/followers-sync` endpoint and a reconciliation scheduler.
 
-### 39. Reading Tags — Use getTags(), NOT object.tag (v3.13.16+)
+### 46. Reading Tags — Use getTags(), NOT object.tag (v3.13.16+) — formerly "39"
 
 Fedify vocab objects (returned by `.getObject()`, etc.) do **not** expose a `.tag` property — `object.tag` is always `undefined`. `object.tagIds` is also useless for the common case: inline `Mention`/`Hashtag` objects are anonymous (no `id`), so `tagIds` is empty even when tags exist. The **only** reliable path is the async iterator `object.getTags({ documentLoader })`, which materializes inline tags:
 
@@ -734,9 +794,9 @@ const hashtags = tagList.filter((t) => t instanceof Hashtag && t.name)
 
 Match with `instanceof Mention` / `instanceof Hashtag` — `tag.type` is also `undefined` on vocab objects, so string comparisons like `tag.type === "Mention"` silently never match. This was a latent dead-code bug: inbound `@`-mention notifications and followed-hashtag ingestion (`inbox-handlers.js`) never fired because they read `object.tag`. Vocab types import from `@fedify/vocab` (see below); its classes are identity-equal to the deprecated `@fedify/fedify/vocab` shim, so `instanceof` holds against objects Fedify builds internally.
 
-### 40. Vocab Imports — @fedify/vocab (not @fedify/fedify/vocab) (v3.13.16+)
+### 47. Vocab Imports — @fedify/vocab (not @fedify/fedify/vocab) (v3.13.16+) — formerly "40"
 
-ActivityStreams vocabulary types are imported from the standalone `@fedify/vocab` package (pinned exact `2.3.1`, matching `@fedify/fedify`), NOT the deprecated `@fedify/fedify/vocab` subpath shim. The shim re-exports `@fedify/vocab`'s **same class objects**, so `instanceof` checks work across the boundary and a Fedify-created object matches a `@fedify/vocab`-imported class. Core (`@fedify/fedify`) and crypto (`@fedify/fedify/sig`) imports are unchanged — only `/vocab` moved. When adding a vocab type, import from `@fedify/vocab`.
+ActivityStreams vocabulary types are imported from the standalone `@fedify/vocab` package (pinned exact, matching `@fedify/fedify` — 2.3.6 as of v4.1), NOT the deprecated `@fedify/fedify/vocab` subpath shim. The shim re-exports `@fedify/vocab`'s **same class objects**, so `instanceof` checks work across the boundary and a Fedify-created object matches a `@fedify/vocab`-imported class. Core (`@fedify/fedify`) and crypto (`@fedify/fedify/sig`) imports are unchanged — only `/vocab` moved. When adding a vocab type, import from `@fedify/vocab`.
 
 ### 41. Fedify Object props are the CONSTRUCTOR name, not the JSON-LD name (v3.13.19+)
 
@@ -746,6 +806,8 @@ When building Fedify vocab objects (`new Note({...})`, `new Create({...})`, etc.
 2. **Activities don't inherit their object's addressing** — a `Create` wrapper needs its own `to`/`cc`/`published`; setting them only on the inner Note is not enough for servers that classify visibility from the Create.
 
 Verify vocab output by serializing (`await obj.toJsonLd({ format: "compact" })`) and asserting the field is present — a missing prop is invisible until you inspect the JSON (or a live actor). Regression tests live in `tests/jf2-to-as2.test.js`.
+
+**Second occurrence (fixed 2026-09-13):** the reader's DM path (`controllers/messages.js`) still built `new Note({ attributedTo })`, so every DM sent from the reader federated without an author. Construction is now `buildDirectMessage()` with `attribution`, covered by `tests/direct-message.test.js`. When touching ANY `new Note/Article/Question(...)`, grep for `attributedTo:`.
 
 ### 42. Mastodon API — Account ids are sha256(url); use isLocalAccountId() (v3.13.20+)
 
@@ -768,6 +830,22 @@ mongosh "$CLOUDRON_MONGODB_URL" --quiet --eval "db.ap_oauth_tokens.deleteOne({ac
 **Public reads (v3.13.21+):** `GET /accounts/:id`, `/:id/statuses`, `/:id/followers`, `/:id/following`, `/:id/featured_tags` are PUBLIC (no `tokenRequired`) to match Mastodon — the same data is already public via ActivityPub, and Phanpy's instance-browse view (`#/<host>/a/<id>`) calls them without a token. Do not re-add auth to these.
 
 **Degraded numeric usernames (v3.13.21+):** an all-digits username (e.g. `116296…@lgbtqia.space`) means the actor couldn't be fetched at ingest (typically an Authorized-Fetch server 401ing unsigned GETs) and the URL-derived fallback was stored. The repair loop: `resolveRemoteAccount`/`fetchRemoteCollectionMemberUrls` do SIGNED-first lookups (`lookupWithSecurity` + authenticated documentLoader — never plain `ctx.lookupObject` for remote actors); the account cache carries identity (username/acct/displayName/avatar); `serializeAccount` repairs all-digits usernames from that cache; and the timeline enrichment durably repairs stored `ap_timeline` author docs on cache-miss resolution. Numeric mentions inside stored post CONTENT html are not rewritten.
+
+### 48. Don't shadow an imported helper with a local of the same name (TDZ crash)
+
+`const count = await count(collection)` (with `count` imported from `core/collections-io.js`) throws `ReferenceError: Cannot access 'count' before initialization` — the local `const` is hoisted over the import for the whole block. It shipped twice and broke pinning a post (`featured.js`) and the entire Federation management page (`federation-mgmt.js`) until 2026-09-13. Name results `total`/`rows`, and give controllers smoke tests: neither page had a test.
+
+### 49. A boundary check that matches NAMES is not a boundary check
+
+The first `check-boundaries.mjs` matched `collections.x.find(` and a few variable names, and reported "boundary holds" while 64 direct calls/storage imports sat in 20 adapters (destructured `ap_timeline.findOne(`, `followersCollection.countDocuments()`, optional chaining, `await import("../storage/…")`). It now matches collection/cursor **methods** on any receiver. If you extend it, add the evasion to `tests/check-boundaries.test.js` first and watch it fail.
+
+### 50. Followed hashtags have TWO independent follow states
+
+`ap_followed_tags` rows carry `followedAt` (local follow — inbox posts with the tag enter the timeline) and/or `globalFollow` + `globalActorUrl` (a Follow sent to the tags.pub relay). `core/tags.js` is the only implementation: `isTagFollowed` means LOCAL; `unfollowTag` keeps the row when a global follow is active and vice versa; `/api/v1/followed_tags` lists local follows only; inbox matching counts both. Until 2026-09-13 the Mastodon lane used a lossy copy (wrote `createdAt`, deleted the row on unfollow) — `backfillTagFollowedAt` repaired its rows.
+
+### 51. Moderation writes must go through core (Redis + cache side effects)
+
+With Redis configured, the inbox's `isServerBlocked` reads ONLY the Redis set `indiekit:blocked_servers`, and the reader's moderation data is cached for 30 s in `item-processing.js`. A write that touches Mongo directly leaves both stale — a domain blocked from Phanpy kept delivering until a restart. `core/moderation` writes delegate to `storage/{moderation,server-blocks}`, which normalise hostnames, sync Redis and invalidate the cache. Never write `ap_muted`/`ap_blocked`/`ap_blocked_servers` elsewhere.
 
 ## Form Handling Convention
 

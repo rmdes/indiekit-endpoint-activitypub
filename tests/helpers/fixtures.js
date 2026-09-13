@@ -219,8 +219,8 @@ export const BLOCKED_SERVERS = [
 ];
 
 export const FOLLOWED_TAGS = [
-  { tag: "activitypub", createdAt: "2026-08-01T00:00:00.000Z" },
-  { tag: "indieweb", createdAt: "2026-08-01T00:00:00.000Z" },
+  { tag: "activitypub", followedAt: "2026-08-01T00:00:00.000Z" },
+  { tag: "indieweb", followedAt: "2026-08-01T00:00:00.000Z" },
 ];
 
 export const PENDING_FOLLOWS = [

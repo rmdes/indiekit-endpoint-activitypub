@@ -15,7 +15,7 @@ import { after, before, describe, it } from "node:test";
 import request from "supertest";
 
 import { withMongo } from "./helpers/mongo.js";
-import { seed } from "./helpers/fixtures.js";
+import { AUTHORS, seed } from "./helpers/fixtures.js";
 import { makeReaderApp } from "./helpers/reader-app.js";
 import { makeMastodonApp, BEARER } from "./helpers/mastodon-app.js";
 
@@ -42,6 +42,9 @@ after(async () => {
  * item with no content, title or media, so this counts rendered cards rather
  * than matched rows.
  */
+/** Fixture item 5 is seeded read (read: true → readAt by the migration). */
+const READ_UID = "https://remote.example/notes/5";
+
 function cardCount(html) {
   return (html.match(/<article class="ap-card/g) || []).length;
 }
@@ -147,10 +150,23 @@ describe("integration: reader timeline endpoint", () => {
       .get("/admin/reader/api/timeline?unread=1")
       .expect(200);
 
+    // Strictly fewer, and the read fixture gone — `<=` passed even when the
+    // filter was ignored entirely.
     assert.ok(
-      cardCount(unread.body.html) <= cardCount(all.body.html),
-      "unread must be a subset",
+      cardCount(unread.body.html) < cardCount(all.body.html),
+      "unread must drop the read item",
     );
+    assert.ok(!unread.body.html.includes(READ_UID), "read item must not render");
+  });
+
+  it("the full reader page honours ?unread=1 too", async () => {
+    const all = await request(reader).get("/admin/reader?tab=notes").expect(200);
+    const unread = await request(reader)
+      .get("/admin/reader?tab=notes&unread=1")
+      .expect(200);
+
+    assert.ok(all.text.includes(READ_UID), "fixture: read item is on the notes tab");
+    assert.ok(!unread.text.includes(READ_UID), "read item must not render");
   });
 
   it("a tag filter narrows to matching items, case-insensitively", async () => {
@@ -229,6 +245,159 @@ describe("integration: both lanes mounted over the same database", () => {
 
     await mongo.collections.ap_blocked_servers.deleteOne({
       hostname: "integration.example",
+    });
+  });
+});
+
+describe("integration: admin pages ported onto core (smoke)", () => {
+  // These pages had no coverage when their direct Mongo calls moved to core;
+  // a wrong collection or field name would only show up here.
+  before(async () => {
+    await mongo.collections.ap_followers.insertMany([
+      { actorUrl: "https://a.example/users/old", name: "Old Follower", followedAt: "2026-07-01T00:00:00.000Z" },
+      { actorUrl: "https://a.example/users/new", name: "New Follower", followedAt: "2026-08-01T00:00:00.000Z" },
+    ]);
+    await mongo.collections.ap_pending_follows.insertOne({
+      actorUrl: "https://b.example/users/pending",
+      name: "Pending Person",
+      handle: "pending@b.example",
+      requestedAt: "2026-08-02T00:00:00.000Z",
+    });
+    await mongo.collections.ap_activities.insertOne({
+      type: "Follow",
+      actorUrl: "https://a.example/users/new",
+      actorName: "Activity Actor",
+      receivedAt: "2026-08-01T00:00:00.000Z",
+    });
+  });
+
+  it("dashboard renders recent activity", async () => {
+    const res = await request(reader).get("/admin").expect(200);
+    assert.ok(res.text.includes("Activity Actor"), "recent activity listed");
+  });
+
+  it("followers tab lists followers, newest first", async () => {
+    const res = await request(reader).get("/admin/followers").expect(200);
+    const newAt = res.text.indexOf("New Follower");
+    const oldAt = res.text.indexOf("Old Follower");
+    assert.ok(newAt > -1 && oldAt > -1, "both followers listed");
+    assert.ok(newAt < oldAt, "sorted by followedAt desc");
+  });
+
+  it("pending tab lists pending requests", async () => {
+    const res = await request(reader).get("/admin/followers?tab=pending").expect(200);
+    assert.ok(res.text.includes("Pending Person"));
+  });
+
+  it("pending tab's Approve/Reject forms carry the SESSION csrf token", async () => {
+    // followers.js called getToken(request) — the token landed on the throwaway
+    // request object, so validateToken (which reads request.session) rejected
+    // every Approve/Reject with 403.
+    const res = await request(reader).get("/admin/followers?tab=pending").expect(200);
+    const rendered = res.text.match(/name="_csrf" value="([^"]+)"/)?.[1];
+
+    assert.ok(rendered, "form carries a token");
+    assert.equal(rendered, reader.locals.testSession._csrfToken);
+  });
+
+  describe("profile pages", () => {
+    before(async () => {
+      // Indiekit's own `posts` collection is not in the harness list.
+      const posts = mongo.db.collection("posts");
+      mongo.collectionMap.set("posts", posts);
+      await posts.deleteMany({});
+      await posts.insertMany([
+        { properties: { url: "https://local.example/notes/a", "post-type": "note", content: { text: "Own Note Alpha", html: "<p>Own Note Alpha</p>" }, published: "2026-08-01T00:00:00.000Z" } },
+        { properties: { url: "https://local.example/replies/b", "post-type": "reply", content: { text: "Own Reply Beta", html: "<p>Own Reply Beta</p>" }, published: "2026-08-02T00:00:00.000Z", "in-reply-to": "https://remote.example/notes/1" } },
+      ]);
+      await mongo.collections.ap_featured.insertOne({
+        postUrl: "https://local.example/notes/a",
+        pinnedAt: "2026-08-03T00:00:00.000Z",
+      });
+    });
+
+    it("my-profile posts tab lists own posts", async () => {
+      const res = await request(reader).get("/admin/my-profile").expect(200);
+      assert.ok(res.text.includes("Own Note Alpha"));
+    });
+
+    it("my-profile replies tab lists only replies", async () => {
+      const res = await request(reader).get("/admin/my-profile?tab=replies").expect(200);
+      assert.ok(res.text.includes("Own Reply Beta"));
+      assert.ok(!res.text.includes("Own Note Alpha"));
+    });
+
+    it("my-profile likes tab resolves liked items from the timeline", async () => {
+      const res = await request(reader).get("/admin/my-profile?tab=likes").expect(200);
+      // An unresolved like falls back to a card whose text is the bare URL;
+      // a resolved one renders the timeline item's author.
+      assert.ok(res.text.includes(AUTHORS.AUTHOR_A.name), "liked item enriched");
+    });
+
+    it("profile form saves through core, links included", async () => {
+      await request(reader)
+        .post("/admin/profile")
+        .type("form")
+        .send({ name: "Saved Name", actorType: "Service", link_name: ["Site"], link_value: ["https://x.example"] })
+        .expect(200);
+
+      const profile = await mongo.collections.ap_profile.findOne({});
+      assert.equal(profile.name, "Saved Name");
+      assert.equal(profile.actorType, "Service");
+      assert.deepEqual(profile.attachments, [{ name: "Site", value: "https://x.example" }]);
+    });
+
+    it("migration alias saves through core", async () => {
+      await request(reader)
+        .post("/admin/migrate")
+        .type("form")
+        .send({ aliasUrl: "https://old.example/@rick" })
+        .expect(200);
+
+      const profile = await mongo.collections.ap_profile.findOne({});
+      assert.deepEqual(profile.alsoKnownAs, ["https://old.example/@rick"]);
+    });
+
+    it("pinning and unpinning a post works (pin used to throw a TDZ ReferenceError)", async () => {
+      const url = "https://local.example/replies/b";
+
+      await request(reader)
+        .post("/admin/featured/pin")
+        .type("form")
+        .send({ postUrl: url })
+        .expect(302);
+      assert.ok(await mongo.collections.ap_featured.findOne({ postUrl: url }), "pinned");
+
+      const page = await request(reader).get("/admin/featured").expect(200);
+      assert.ok(page.text.includes("Own Reply Beta"), "pinned post listed with its title");
+
+      await request(reader)
+        .post("/admin/featured/unpin")
+        .type("form")
+        .send({ postUrl: url })
+        .expect(302);
+      assert.equal(await mongo.collections.ap_featured.findOne({ postUrl: url }), null, "unpinned");
+    });
+
+    it("federation management page renders (collection stats used to throw)", async () => {
+      await mongo.collections.ap_blocked_servers.insertOne({
+        hostname: "fedmgmt-blocked.example",
+        blockedAt: "2026-08-01T00:00:00.000Z",
+      });
+
+      const res = await request(reader).get("/admin/federation").expect(200);
+      assert.ok(res.text.includes("fedmgmt-blocked.example"), "blocked servers listed");
+      assert.ok(res.text.includes("Own Note Alpha"), "publication posts listed");
+
+      await mongo.collections.ap_blocked_servers.deleteOne({ hostname: "fedmgmt-blocked.example" });
+    });
+
+    it("public profile renders pinned and recent posts", async () => {
+      const res = await request(reader)
+        .get("/users/rick")
+        .set("Accept", "text/html")
+        .expect(200);
+      assert.ok(res.text.includes("Own Note Alpha"));
     });
   });
 });

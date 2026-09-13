@@ -1,6 +1,8 @@
 # @rmdes/indiekit-endpoint-activitypub
 
-ActivityPub federation endpoint for [Indiekit](https://getindiekit.com), built on [Fedify](https://fedify.dev) 2.1. Makes your IndieWeb site a full fediverse actor — discoverable, followable, and interactive from Mastodon, Misskey, Pixelfed, and any ActivityPub-compatible platform. Includes a Mastodon-compatible Client API so you can use Phanpy, Elk, Moshidon, Fedilab, and other Mastodon clients with your own AP instance.
+ActivityPub federation endpoint for [Indiekit](https://getindiekit.com), built on [Fedify](https://fedify.dev) 2.3. Makes your IndieWeb site a full fediverse actor — discoverable, followable, and interactive from Mastodon, Misskey, Pixelfed, and any ActivityPub-compatible platform. Includes a Mastodon-compatible Client API so you can use Phanpy, Elk, Moshidon, Fedilab, and other Mastodon clients with your own AP instance.
+
+**Architecture in one line:** the admin reader and the Mastodon Client API are thin adapters over one shared domain core (`lib/core/`), so both clients see the same timeline order, read state, threads, moderation and follows — enforced by a boundary check and a parity test suite in CI. Contributor details: [CLAUDE.md](CLAUDE.md#single-lane-core-v4--read-first).
 
 ## Features
 
@@ -97,7 +99,7 @@ ActivityPub federation endpoint for [Indiekit](https://getindiekit.com), built o
 - In-memory account stats cache (500 entries, 1h TTL) for performance
 - OAuth2 scope enforcement — read/write scope validation on all API routes
 - Rate limiting — configurable limits on API, auth, and app registration endpoints
-- Access token expiry (1 hour) with refresh token rotation (90 days)
+- Access tokens valid until revoked (matching Mastodon — a 1-hour expiry broke client sessions), refresh tokens 90 days
 - PKCE (S256) and CSRF protection on authorization flow
 
 **Admin UI**
@@ -115,33 +117,33 @@ Core protocols and Fediverse Enhancement Proposals (FEPs) supported:
 
 | Standard | Name | Status | Provider |
 |----------|------|--------|----------|
-| [ActivityPub](https://www.w3.org/TR/activitypub/) | W3C ActivityPub | Full (server-to-server) | Fedify 2.1 |
-| [ActivityStreams 2.0](https://www.w3.org/TR/activitystreams-core/) | W3C Activity Streams | Full | Fedify 2.1 |
-| [HTTP Signatures](https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures) | draft-cavage HTTP Signatures | Full | Fedify 2.1 |
-| [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) | HTTP Message Signatures | Full (with Accept-Signature negotiation) | Fedify 2.1 |
-| [WebFinger](https://www.rfc-editor.org/rfc/rfc7033) | RFC 7033 WebFinger | Full | Fedify 2.1 |
+| [ActivityPub](https://www.w3.org/TR/activitypub/) | W3C ActivityPub | Full (server-to-server) | Fedify 2.3 |
+| [ActivityStreams 2.0](https://www.w3.org/TR/activitystreams-core/) | W3C Activity Streams | Full | Fedify 2.3 |
+| [HTTP Signatures](https://datatracker.ietf.org/doc/html/draft-cavage-http-signatures) | draft-cavage HTTP Signatures | Full | Fedify 2.3 |
+| [RFC 9421](https://www.rfc-editor.org/rfc/rfc9421) | HTTP Message Signatures | Full (with Accept-Signature negotiation) | Fedify 2.3 |
+| [WebFinger](https://www.rfc-editor.org/rfc/rfc7033) | RFC 7033 WebFinger | Full | Fedify 2.3 |
 | [NodeInfo 2.1](https://nodeinfo.diaspora.software/) | Server metadata discovery | Full (enriched) | Plugin |
-| [FEP-8b32](https://w3id.org/fep/8b32) | Object Integrity Proofs (Ed25519) | Full | Fedify 2.1 |
-| [FEP-521a](https://w3id.org/fep/521a) | Multiple key pairs (Multikey) | Full | Fedify 2.1 |
-| [FEP-fe34](https://w3id.org/fep/fe34) | Origin-based security model | Full | Fedify 2.1 + Plugin |
-| [FEP-8fcf](https://w3id.org/fep/8fcf) | Followers collection synchronization | Outbound only | Fedify 2.1 |
+| [FEP-8b32](https://w3id.org/fep/8b32) | Object Integrity Proofs (Ed25519) | Full | Fedify 2.3 |
+| [FEP-521a](https://w3id.org/fep/521a) | Multiple key pairs (Multikey) | Full | Fedify 2.3 |
+| [FEP-fe34](https://w3id.org/fep/fe34) | Origin-based security model | Full | Fedify 2.3 + Plugin |
+| [FEP-8fcf](https://w3id.org/fep/8fcf) | Followers collection synchronization | Outbound only | Fedify 2.3 |
 | [FEP-5feb](https://w3id.org/fep/5feb) | Search indexing consent | Full (`indexable`, `discoverable`) | Plugin |
 | [FEP-f1d5](https://w3id.org/fep/f1d5) | Enhanced NodeInfo 2.1 | Full (metadata, staff accounts) | Plugin |
 | [FEP-4f05](https://w3id.org/fep/4f05) | Soft delete with Tombstone | Full (410 + Tombstone JSON-LD) | Plugin |
 | [FEP-3b86](https://w3id.org/fep/3b86) | Activity Intents | Full (Follow, Create, Like, Announce) | Plugin |
-| [FEP-044f](https://w3id.org/fep/044f) | Quote posts | Full (Mastodon, Misskey, Fedibird formats) | Fedify 2.1 + Plugin |
-| [FEP-c0e0](https://w3id.org/fep/c0e0) | Emoji reactions (EmojiReact) | Vocab support (no UI) | Fedify 2.1 |
-| [FEP-5711](https://w3id.org/fep/5711) | Conversation threads | Vocab support | Fedify 2.1 |
-| [Linked Data Signatures](https://w3c-dvcg.github.io/ld-signatures/) | RsaSignature2017 (legacy) | Full (outbound signing) | Fedify 2.1 |
+| [FEP-044f](https://w3id.org/fep/044f) | Quote posts | Full (Mastodon, Misskey, Fedibird formats) | Fedify 2.3 + Plugin |
+| [FEP-c0e0](https://w3id.org/fep/c0e0) | Emoji reactions (EmojiReact) | Vocab support (no UI) | Fedify 2.3 |
+| [FEP-5711](https://w3id.org/fep/5711) | Conversation threads | Vocab support | Fedify 2.3 |
+| [Linked Data Signatures](https://w3c-dvcg.github.io/ld-signatures/) | RsaSignature2017 (legacy) | Full (outbound signing) | Fedify 2.3 |
 
 **Status key:** *Full* = complete implementation, *Outbound only* = sending side only, *Vocab support* = types available but no dedicated UI/logic.
 
-**Provider key:** *Fedify 2.1* = handled by the Fedify framework, *Plugin* = implemented in this plugin, *Fedify 2.1 + Plugin* = framework provides primitives, plugin wires them together.
+**Provider key:** *Fedify 2.3* = handled by the Fedify framework, *Plugin* = implemented in this plugin, *Fedify 2.3 + Plugin* = framework provides primitives, plugin wires them together.
 
 ## Requirements
 
 - [Indiekit](https://getindiekit.com) v1.0.0-beta.25+
-- [Fedify](https://fedify.dev) 2.1+ (bundled as dependency)
+- [Fedify](https://fedify.dev) 2.3+ (bundled as dependency)
 - Node.js >= 22
 - MongoDB (used by Indiekit)
 - Redis (recommended for production delivery queue; in-process queue available for development)
@@ -372,7 +374,7 @@ Categories are converted to `Hashtag` tags. Bookmarks include a bookmark emoji a
 
 ## Fedify Workarounds and Implementation Notes
 
-This plugin uses [Fedify](https://fedify.dev) 2.1 but carries several workarounds for issues in Fedify or its Express integration. These are documented here so they can be revisited when Fedify upgrades.
+This plugin uses [Fedify](https://fedify.dev) 2.3 but carries several workarounds for issues in Fedify or its Express integration. These are documented here so they can be revisited when Fedify upgrades.
 
 ### Custom Express Bridge (instead of `@fedify/express`)
 
@@ -441,7 +443,8 @@ This is not a bug — Fedify requires explicit opt-in for signed fetches. But it
 
 ## Known Limitations
 
-- **No automated tests** — Manual testing against real fediverse servers
+- **Partial automated coverage** — `npm test` (~300 tests, CI) covers the shared core, both client surfaces and their parity; inbound federation handlers and delivery are exercised by a separate black-box harness against a live server
+- **No ActivityPub client-to-server (C2S) API yet** — the outbox is read-only (no outbox POST handling); clients connect through the Mastodon-compatible API
 - **Single actor** — One fediverse identity per Indiekit instance
 - **No Authorized Fetch enforcement** — `.authorize()` disabled on actor dispatcher (see workarounds above)
 - **No image upload in reader** — Compose form is text-only

@@ -60,45 +60,71 @@ test("encodeCursor returns null for a document without an id", () => {
   assert.equal(encodeCursor(null), null);
 });
 
-test("buildPage: `before` selects strictly older items", () => {
-  const { filter, sort, reverse } = buildPage({ type: "note" }, { before: OID });
+/** Collection double: findOne returns the anchor document (or null). */
+const anchorAt = (doc) => ({ findOne: async () => doc });
+const ANCHOR = { _id: decodeCursor(OID), receivedAt: "2026-08-01T12:00:00.000Z" };
 
-  assert.equal(filter.type, "note", "base filter is preserved");
-  assert.equal(filter._id.$lt.toString(), OID);
+test("buildPage: `before` pages on (receivedAt, _id), not _id alone", async () => {
+  const { filter, sort, reverse } = await buildPage(
+    anchorAt(ANCHOR), { type: "note" }, { before: OID },
+  );
+
+  assert.deepEqual(filter.$and[0], { type: "note" }, "base filter is preserved");
+  assert.deepEqual(filter.$and[1], {
+    $or: [
+      { receivedAt: { $lt: ANCHOR.receivedAt } },
+      { receivedAt: ANCHOR.receivedAt, _id: { $lt: ANCHOR._id } },
+    ],
+  });
   assert.equal(reverse, false);
   assert.deepEqual(sort, { receivedAt: -1, _id: -1 });
 });
 
-test("buildPage: `after` selects strictly newer items, newest first", () => {
-  const { filter, reverse } = buildPage({}, { after: OID });
+test("buildPage: `after` selects strictly newer items, newest first", async () => {
+  const { filter, reverse } = await buildPage(anchorAt(ANCHOR), {}, { after: OID });
 
-  assert.equal(filter._id.$gt.toString(), OID);
+  assert.equal(filter.$and[1].$or[0].receivedAt.$gt, ANCHOR.receivedAt);
   assert.equal(reverse, false);
 });
 
-test("buildPage: `since` selects newer items oldest-first, and reverses", () => {
-  const { filter, sort, reverse } = buildPage({}, { since: OID });
+test("buildPage: `since` selects newer items oldest-first, and reverses", async () => {
+  const { filter, sort, reverse } = await buildPage(anchorAt(ANCHOR), {}, { since: OID });
 
-  assert.equal(filter._id.$gt.toString(), OID);
+  assert.equal(filter.$and[1].$or[0].receivedAt.$gt, ANCHOR.receivedAt);
   assert.equal(reverse, true, "caller must reverse to restore newest-first");
   assert.deepEqual(sort, { receivedAt: 1, _id: 1 });
 });
 
-test("buildPage: no cursor leaves the filter untouched", () => {
-  const { filter, reverse } = buildPage({ type: "note" }, {});
+test("buildPage: a cursor whose document is gone falls back to _id", async () => {
+  const { filter } = await buildPage(anchorAt(null), {}, { before: OID });
+
+  assert.equal(filter.$and[1]._id.$lt.toString(), OID);
+});
+
+test("buildPage: sortField `_id` needs no lookup", async () => {
+  const noLookup = { findOne: async () => assert.fail("must not look up") };
+  const { filter, sort } = await buildPage(noLookup, { type: "like" }, { before: OID }, "_id");
+
+  assert.equal(filter.$and[1]._id.$lt.toString(), OID);
+  assert.deepEqual(sort, { _id: -1 });
+});
+
+test("buildPage: no cursor leaves the filter untouched", async () => {
+  const { filter, reverse, cursored } = await buildPage(anchorAt(ANCHOR), { type: "note" }, {});
 
   assert.deepEqual(filter, { type: "note" });
   assert.equal(reverse, false);
+  assert.equal(cursored, false);
 });
 
-test("buildPage: an unusable cursor is ignored, not fatal", () => {
-  const { filter } = buildPage({ type: "note" }, { before: "garbage" });
+test("buildPage: an unusable cursor is ignored, not fatal", async () => {
+  const { filter } = await buildPage(anchorAt(ANCHOR), { type: "note" }, { before: "garbage" });
 
   assert.deepEqual(filter, { type: "note" });
 });
 
-test("buildPage: sorts on receivedAt with _id as tiebreak (DD-1)", () => {
-  const { sort } = buildPage({}, {});
+test("buildPage: sorts on receivedAt with _id as tiebreak (DD-1)", async () => {
+  const { sort } = await buildPage(anchorAt(ANCHOR), {}, {});
 
   // receivedAt is arrival time. `_id` breaks ties so same-millisecond arrivals
   // stay stably ordered and cursors remain unambiguous.

@@ -498,6 +498,28 @@ describe("parity: remaining stubbed reads (AP-D6')", () => {
     assert.equal(res.body.length, 1, "regression guard: this was AP-D6");
   });
 
+  it("featured tags are readable, and match the owner's account view", async () => {
+    await mongo.collections.ap_featured_tags.insertOne({
+      tag: "indieweb",
+      addedAt: "2026-08-01T00:00:00.000Z",
+    });
+
+    const me = await request(app)
+      .get("/api/v1/accounts/verify_credentials")
+      .set("Authorization", BEARER)
+      .expect(200);
+    const viaAccount = await request(app)
+      .get(`/api/v1/accounts/${me.body.id}/featured_tags`)
+      .expect(200);
+    const own = await request(app)
+      .get("/api/v1/featured_tags")
+      .set("Authorization", BEARER)
+      .expect(200);
+
+    assert.equal(own.body.length, 1, "AP-D6': was a constant []");
+    assert.deepEqual(own.body, viaAccount.body);
+  });
+
   it(
     // AP-D6' CLOSED (Stage 4): both lanes read core/messages.js.
     "conversations are readable",
