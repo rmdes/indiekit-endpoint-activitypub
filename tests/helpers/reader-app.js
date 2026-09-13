@@ -22,6 +22,7 @@ import express from "express";
 import { templates } from "@indiekit/frontend";
 
 import { apiTimelineController } from "../../lib/controllers/api-timeline.js";
+import { readerController } from "../../lib/controllers/reader.js";
 
 const PLUGIN_VIEWS = fileURLToPath(new URL("../../views", import.meta.url));
 
@@ -33,6 +34,7 @@ export function makeReaderApp(collectionMap) {
   const app = express();
 
   app.set("views", [PLUGIN_VIEWS]);
+  app.set("view engine", "njk"); // full-page controllers render by bare name
   const env = templates(app);
 
   // Indiekit installs `__` (i18n lookup) as a Nunjucks global at host level.
@@ -42,7 +44,7 @@ export function makeReaderApp(collectionMap) {
 
   // Controllers reach collections through `application.collections` (a Map),
   // mirroring how Indiekit exposes them on app.locals.
-  app.locals.application = { collections: collectionMap };
+  app.locals.application = { collections: collectionMap, navigation: [] };
 
   // Templates reference these; absent values render as empty rather than throw.
   app.locals.publication = { me: "https://local.example/" };
@@ -52,10 +54,13 @@ export function makeReaderApp(collectionMap) {
   // Per-request and non-persistent, which is all the read paths need.
   app.use((req, _res, next) => {
     req.session = req.session || {};
+    // Full-page controllers read titles via response.locals.__ (Indiekit's i18n).
+    _res.locals.__ = (key) => key;
     next();
   });
 
   app.get("/admin/reader/api/timeline", apiTimelineController("/activitypub"));
+  app.get("/admin/reader", readerController("/activitypub"));
 
   return app;
 }

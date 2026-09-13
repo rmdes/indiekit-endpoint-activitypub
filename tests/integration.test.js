@@ -42,6 +42,9 @@ after(async () => {
  * item with no content, title or media, so this counts rendered cards rather
  * than matched rows.
  */
+/** Fixture item 5 is seeded read (read: true → readAt by the migration). */
+const READ_UID = "https://remote.example/notes/5";
+
 function cardCount(html) {
   return (html.match(/<article class="ap-card/g) || []).length;
 }
@@ -147,10 +150,23 @@ describe("integration: reader timeline endpoint", () => {
       .get("/admin/reader/api/timeline?unread=1")
       .expect(200);
 
+    // Strictly fewer, and the read fixture gone — `<=` passed even when the
+    // filter was ignored entirely.
     assert.ok(
-      cardCount(unread.body.html) <= cardCount(all.body.html),
-      "unread must be a subset",
+      cardCount(unread.body.html) < cardCount(all.body.html),
+      "unread must drop the read item",
     );
+    assert.ok(!unread.body.html.includes(READ_UID), "read item must not render");
+  });
+
+  it("the full reader page honours ?unread=1 too", async () => {
+    const all = await request(reader).get("/admin/reader?tab=notes").expect(200);
+    const unread = await request(reader)
+      .get("/admin/reader?tab=notes&unread=1")
+      .expect(200);
+
+    assert.ok(all.text.includes(READ_UID), "fixture: read item is on the notes tab");
+    assert.ok(!unread.text.includes(READ_UID), "read item must not render");
   });
 
   it("a tag filter narrows to matching items, case-insensitively", async () => {
