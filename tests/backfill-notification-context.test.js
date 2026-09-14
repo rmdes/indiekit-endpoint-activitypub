@@ -111,6 +111,14 @@ describe("backfillNotificationContext", () => {
     assert.equal(mention.visibility, "public", "existing row untouched");
     assert.equal(mention.isContext, undefined);
   });
+
+  it("runs once: a later restart does not rescan notifications", async () => {
+    await backfillNotificationContext(mongo.collections);
+    await mongo.collections.ap_timeline.deleteMany({ isContext: true });
+
+    assert.equal(await backfillNotificationContext(mongo.collections), 0);
+    assert.equal(await mongo.collections.ap_timeline.countDocuments({ isContext: true }), 0);
+  });
 });
 
 describe("after the backfill, both surfaces can reach the reply", () => {

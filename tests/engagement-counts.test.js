@@ -21,6 +21,7 @@ import { makeMastodonApp, BEARER } from "./helpers/mastodon-app.js";
 import { seed, PROFILE } from "./helpers/fixtures.js";
 import { getEngagementCounts } from "../lib/core/interactions.js";
 import { postProcessItems } from "../lib/item-processing.js";
+import { accountId } from "../lib/mastodon/helpers/id-mapping.js";
 
 let mongo;
 
@@ -92,6 +93,38 @@ describe("both surfaces use the rule", () => {
     const res = await request(app).get(`/api/v1/statuses/${row._id}`).set("Authorization", BEARER).expect(200);
     assert.equal(res.body.favourites_count, 2);
     assert.equal(res.body.reblogs_count, 1);
+  });
+
+  it("Mastodon profile statuses and notifications carry the same counts", async () => {
+    await mongo.collections.ap_timeline.insertOne({
+      ...ownItem,
+      content: { text: "mine", html: "<p>mine</p>" },
+      published: "2026-09-13T19:00:00.000Z",
+      receivedAt: "2026-09-13T19:00:00.000Z",
+      visibility: "public",
+    });
+    await mongo.collections.ap_notifications.insertOne({
+      uid: "https://a.example/likes/9",
+      type: "like",
+      actorUrl: "https://a.example/u",
+      targetUrl: OURS,
+      published: "2026-09-13T20:00:00.000Z",
+      createdAt: "2026-09-13T20:00:00.000Z",
+      readAt: null,
+      read: false,
+    });
+    const app = makeMastodonApp(mongo.collections);
+
+    const statuses = await request(app)
+      .get(`/api/v1/accounts/${accountId(PROFILE)}/statuses`)
+      .expect(200);
+    const mine = statuses.body.find((s) => s.uri === OURS);
+    assert.equal(mine.favourites_count, 2);
+    assert.equal(mine.reblogs_count, 1);
+
+    const notifs = await request(app).get("/api/v1/notifications").set("Authorization", BEARER).expect(200);
+    const fav = notifs.body.find((n) => n.status?.uri === OURS);
+    assert.equal(fav.status.favourites_count, 2);
   });
 
   it("reader pipeline puts the same counts on the item", async () => {
