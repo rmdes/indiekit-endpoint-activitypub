@@ -52,4 +52,17 @@ describe("loadReplies", () => {
       ["https://remote.example/notes/direct", "https://remote.example/notes/nested"],
     );
   });
+
+  it("lists local replies from the stored item when no remote object was fetched", async () => {
+    await mongo.collections.ap_timeline.insertOne(
+      row("direct", ROOT, "2026-08-01T10:00:00.000Z"),
+    );
+
+    const replies = await loadReplies(null, null, null, mongo.collections, 20, {
+      uid: ROOT,
+      url: ROOT,
+    });
+
+    assert.deepEqual(replies.map((r) => r.uid), ["https://remote.example/notes/direct"]);
+  });
 });
